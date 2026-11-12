@@ -172,3 +172,13 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+control/__pycache__/
+control/**/__pycache__/
+results/**/*.log
+results/sweep_*.log
+papers/**/*.aux
+papers/**/*.out
+papers/**/*.log
+papers/**/build*.log
+__pycache__/
+*.pyc

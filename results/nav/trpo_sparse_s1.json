@@ -1,0 +1,26 @@
+{
+ "env": "nav",
+ "algo": "trpo",
+ "reward": "sparse",
+ "seed": 1,
+ "total_steps": 409600,
+ "wall_s": 135.3,
+ "eval_success": 0.28125,
+ "eval_outcome": 0.25,
+ "eval_len": 104.59375,
+ "eval_return": 0.8056249618530273,
+ "eval_return_std": 1.3942419290542603,
+ "last_train_metrics": {
+  "pi_loss": -0.008012326434254646,
+  "vf_loss": 0.038761229341616854,
+  "trpo_accept": 1.0,
+  "post_kl": 0.006941975560039282,
+  "log_std": -0.5589168071746826,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "success": 0.0,
+  "collision": -0.015625,
+  "time": -0.009999999776482582
+ }
+}

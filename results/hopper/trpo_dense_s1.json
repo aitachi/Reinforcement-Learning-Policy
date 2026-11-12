@@ -1,0 +1,27 @@
+{
+ "env": "hopper",
+ "algo": "trpo",
+ "reward": "dense",
+ "seed": 1,
+ "total_steps": 606208,
+ "wall_s": 932.6,
+ "eval_success": 0.890625,
+ "eval_outcome": 0.7329142689704895,
+ "eval_len": 176.375,
+ "eval_return": 252.29824829101562,
+ "eval_return_std": 88.75889587402344,
+ "last_train_metrics": {
+  "pi_loss": -0.008787124417722225,
+  "vf_loss": 167.5076665878296,
+  "trpo_accept": 1.0,
+  "post_kl": 0.00855191145092249,
+  "log_std": -0.6075923442840576,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "speed": 0.7738293409347534,
+  "alive": 0.4921875,
+  "fall": -0.03125,
+  "effort": -0.002087709493935108
+ }
+}

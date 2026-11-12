@@ -1,0 +1,27 @@
+{
+ "env": "nav",
+ "algo": "grpo",
+ "reward": "dense",
+ "seed": 2,
+ "total_steps": 400096,
+ "wall_s": 252.8,
+ "eval_success": 0.59375,
+ "eval_outcome": 0.1875,
+ "eval_len": 11.03125,
+ "eval_return": 0.9733399152755737,
+ "eval_return_std": 2.5286355018615723,
+ "last_train_metrics": {
+  "pi_loss": 0.028449402501185734,
+  "ratio_dev": 0.002334466475682954,
+  "clip_high_frac": 0.0,
+  "kept": 4121.0,
+  "group_std": 1.0157198905944824,
+  "success": 0.8046875,
+  "log_std": -0.5079563856124878,
+  "optimizer_steps": 3,
+  "episode_return_mean": 1.085011601448059,
+  "episode_success": 0.8046875,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

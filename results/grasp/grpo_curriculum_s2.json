@@ -1,0 +1,31 @@
+{
+ "env": "grasp",
+ "algo": "grpo",
+ "reward": "curriculum",
+ "seed": 2,
+ "total_steps": 511814,
+ "wall_s": 82.6,
+ "eval_success": 0.0,
+ "eval_outcome": 0.0,
+ "eval_len": 160.0,
+ "eval_return": -3.2355196475982666,
+ "eval_return_std": 0.1933974176645279,
+ "diag_dist": 0.2153751105070114,
+ "diag_grasp": 0.0,
+ "diag_grip": 0.4427718222141266,
+ "diag_height": 0.008174999617040157,
+ "last_train_metrics": {
+  "pi_loss": 0.00958582297898829,
+  "ratio_dev": 0.0012041125766700134,
+  "clip_high_frac": 0.0,
+  "kept": 20401.0,
+  "group_std": 0.035031434148550034,
+  "success": 0.0078125,
+  "log_std": -0.5003969073295593,
+  "optimizer_steps": 10,
+  "episode_return_mean": -0.7873376607894897,
+  "episode_success": 0.0078125,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

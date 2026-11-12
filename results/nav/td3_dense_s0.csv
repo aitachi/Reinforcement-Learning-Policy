@@ -1,0 +1,2 @@
+env,algo,reward,seed,steps,wall,eval_success,eval_outcome,eval_len,eval_return,eval_return_std,pi_loss,q_loss,q1
+nav,td3,dense,0,20032,141.4,0.71875,0.4375,8.34375,1.3151394128799438,2.2389426231384277,-1.01782,0.14571,0.83417

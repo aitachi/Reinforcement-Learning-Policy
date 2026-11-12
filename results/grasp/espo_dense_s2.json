@@ -1,0 +1,35 @@
+{
+ "env": "grasp",
+ "algo": "espo",
+ "reward": "dense",
+ "seed": 2,
+ "total_steps": 507904,
+ "wall_s": 174.1,
+ "eval_success": 0.75,
+ "eval_outcome": 0.75,
+ "eval_len": 54.9375,
+ "eval_return": 4.47763204574585,
+ "eval_return_std": 5.184686183929443,
+ "diag_dist": 0.03499530628323555,
+ "diag_grasp": 0.75,
+ "diag_grip": 0.09339673072099686,
+ "diag_height": 0.5000509023666382,
+ "last_train_metrics": {
+  "pi_loss": -0.016949734728162486,
+  "vf_loss": 1.8113594104846318,
+  "entropy": 3.6221335232257843,
+  "approx_kl": 0.08950634382199496,
+  "clip_frac": 0.4308268229166667,
+  "log_std": -0.5133958285053571,
+  "epochs": 3,
+  "optimizer_steps": 24
+ },
+ "reward_term_audit": {
+  "approach": -0.00833882112056017,
+  "lift": 0.012775491923093796,
+  "milestone": 0.015625,
+  "grasp_event": 0.03125,
+  "success": 0.0,
+  "drop": 0.0
+ }
+}

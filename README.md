@@ -1,4 +1,107 @@
-# PPO / DPO / GRPO / DAPO: A Comparative Study of Reinforcement Learning Algorithms for Large Language Model Training
+# Reinforcement-Learning-Policy
+
+**A comprehensive, open comparison of policy-optimization algorithms across
+two domains: LLM post-training and robot control.**
+
+强化学习策略优化全方位对比项目:横跨 **LLM 后训练** 与 **机器人控制** 两个领域的算法对比、奖励范式设计与可复现实验套件。
+
+---
+
+## What is in this repository
+
+| Domain | Algorithms | Tasks | Entry |
+|---|---|---|---|
+| **Robot control** (new) | PPO-Clip, PPO-KL, PPO-RB, TR-PPO-RB, ESPO, PPG, TRPO, A2C, GRPO-C, DAPO-C, SAC (11) | E1 obstacle navigation, E2 monopod locomotion, E3 reach-grasp-lift | `control/` |
+| **LLM post-training** (original) | PPO, DPO, GRPO, DAPO (4) | reasoning / math QA style tasks | `algorithms/`, `run_comparison.py` |
+
+Both halves share one research question: **how do the trust-region
+proximal family and the group-relative family behave under controlled,
+budget-matched conditions**, and how does the answer depend on the reward
+signal?
+
+## The control suite (`control/`)
+
+```bash
+# single run
+python3 control/train.py --env nav --algo ppo --reward dense --seed 0
+# full grid (resumable)
+python3 control/sweep.py --axis all --workers 2
+# figures + LaTeX tables
+python3 control/analysis.py
+```
+
+- **Environments** — pure PyTorch, GPU-batched (64-128 parallel episodes),
+  no MuJoCo/external physics dependency:
+  - `nav` E1: holonomic robot crossing a random obstacle field (lidar obs)
+  - `hopper` E2: 5-DOF planar monopod with series-elastic knee, assembled
+    from analytic rigid-body Jacobians
+  - `grasp` E3: velocity-controlled 3-link arm, kinematic grasp with
+    hysteresis, lift-to-success
+- **Reward paradigms** (`control/rewards/paradigms.py`): each task ships
+  with sparse / dense / potential-based (PBS) / curriculum variants; task
+  signals are decoupled from rewards, with per-term audits (reward-hacking
+  telemetry).
+- **Algorithms** (`control/algos/`): PPO family with method switch
+  (clip / adaptive-KL / rollback / trust-region rollback / early-stop),
+  PPG with auxiliary phases, TRPO with CG + backtracking, A2C, GRPO-C /
+  DAPO-C (group-relative on episode outcomes, clip-higher, dynamic
+  sampling, timeout filtering), SAC anchor.
+- **Fairness protocol**: identical collection budgets, network sizes,
+  optimizers, seeds and deterministic evaluation (64 held-out episodes at
+  full difficulty every 20k steps).
+
+## Papers (built from the experiments above)
+
+- `papers/paper1_algo_comparison/` — *From Trust Regions to Group
+  Baselines: A Unified Empirical Study of Proximal Policy Optimization
+  Families for Robot Control* (11 algorithms x 3 tasks x 3 seeds + reward
+  axis; PDF included after build)
+- `papers/paper2_reward_design/` — *Reward Paradigm Design for Robot
+  Policy Optimization* (12 audited reward functions; paradigm x algorithm
+  interaction; documented reward-hacking case study)
+
+## Headline results (189 runs, dense reward, 3 seeds)
+
+| Algorithm | E1 Nav success | E2 Hopper displ. | E3 Grasp lift | wall-clock note |
+|---|---|---|---|---|
+| SAC | **0.830** | **0.899** | 0.629 | 5-8x slower |
+| TD3 | 0.434 | 0.167 | 0.000 | seed-lottery unreliable |
+| PPG | 0.673 | 0.020 | **0.998** | 39 s on E1 |
+| PPO-KL | 0.658 | **0.785** | 0.992 | |
+| PPO-RB | 0.655 | 0.669 | **0.995** | |
+| ESPO | 0.648 | 0.755 | 0.568 | |
+| TR-PPO-RB | 0.625 | 0.754 | 0.694 | |
+| TRPO | 0.563 | 0.485 | 0.745 | high seed variance |
+| A2C | 0.547 | 0.027 | 0.059 | |
+| PPO-Clip | 0.540 | 0.426 | 0.735 | +-0.26 seed scatter on E2 |
+| GRPO-C | 0.382 | 0.060 | 0.000 | |
+| DAPO-C | 0.324 | 0.015 | 0.000 | |
+
+Key findings: trust-region safeguards (adaptive-KL / early-stop / TR-rollback)
+decide reliability on contact-rich locomotion; group-relative methods transfer
+only to outcome-shaped tasks; PBS reward shaping wins on grasping but collapses
+on locomotion (gamma<1 potential distortion). Full analysis in the two papers.
+
+## Results layout
+
+```
+results/
+  <env>/<algo>_<reward>_s<seed>.csv   # per-eval learning curves
+  <env>/<algo>_<reward>_s<seed>.json  # final summary + reward term audit
+  figs/                               # publication figures (PDF) + .tex tables
+```
+
+## Original LLM comparative study (preserved in full)
+
+The remainder of this README (Part II below), together with
+`algorithms/`, `run_comparison.py`, `DAPO_GRPO_PPO_DPO/`, `GRPO_PPO_DPO/`,
+`docs/` and `src/`, preserves the original PPO/DPO/GRPO/DAPO study for
+LLM training, including its IEEE-style survey (EN/CN), algorithm
+derivations and trained checkpoints.
+
+---
+
+# Part II (original document): PPO / DPO / GRPO / DAPO — A Comparative Study of Reinforcement Learning Algorithms for Large Language Model Training
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)]()

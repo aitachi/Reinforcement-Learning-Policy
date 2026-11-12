@@ -98,7 +98,7 @@ PPOvDPOvGRPOvDAPO/
 | `DeepSeek_R1.pdf` | DeepSeek-R1 论文原文 |
 | `DAPO.pdf` | DAPO 论文原文 |
 | `RL_Four_Algorithms_Comparison.md` | 四算法全面对比分析 |
-| `GRPO_PPO算法对比分析.md` | 早期算法分析文档 |
+| `强化学习算法对比分析.md` | 早期算法分析文档 |
 | `QWEN2-R1脚本分析报告.md` | Qwen2-R1 流程分析 |
 | `SFT训练中NaN值问题的分析报告.md` | 训练问题分析 |
 
@@ -163,3 +163,31 @@ run_comparison.py
 ---
 
 **最后更新:** 2025-04-07
+
+## 控制域扩展 (control/)
+
+```
+control/
+├── envs/                  # 纯 PyTorch 向量化环境
+│   ├── nav_obstacle.py    # E1 避障导航 (14 obs / 2 act)
+│   ├── hopper_lite.py     # E2 单足运控 (5-DOF 刚体动力学+膝关节弹簧)
+│   └── reach_grasp.py     # E3 机械臂抓取 (3连杆+夹爪, 滞回抓取)
+├── rewards/paradigms.py   # 奖励范式库: sparse/dense/pbs/curriculum × 3任务
+├── algos/
+│   ├── ppo_family.py      # PPO-Clip/KL/RB/TR-RB/ESPO + PPG + A2C
+│   ├── trpo.py            # TRPO (CG + 回溯线搜)
+│   ├── grpo_dapo.py       # GRPO-C / DAPO-C (组相对 + clip-higher + 动态采样)
+│   ├── sac.py             # SAC 基线
+│   └── nets.py            # tanh 高斯策略 + GAE rollout
+├── train.py               # 统一训练入口
+├── sweep.py               # 全网格调度 (可断点续跑)
+├── analysis.py            # 出版级图表 + LaTeX 表格
+├── configs.py             # 统一超参 (公平性协议)
+├── selftest_envs.py       # 环境物理自测
+└── selftest_algos.py      # 11 算法 × 3 环境冒烟
+
+results/                   # 实验输出 (CSV曲线 + JSON汇总 + 图)
+papers/
+├── paper1_algo_comparison/  # 论文1: 算法对比 (SCI 2区标准)
+└── paper2_reward_design/    # 论文2: 奖励范式设计
+```

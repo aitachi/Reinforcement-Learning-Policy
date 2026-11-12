@@ -1,4 +1,15 @@
-# PPO / DPO / GRPO / DAPO：大语言模型强化学习算法对比研究
+# Reinforcement-Learning-Policy(强化学习策略优化全方位对比项目)
+
+**横跨 LLM 后训练与机器人控制两个领域的开源算法对比套件:11 种控制算法 × 3 个机器人任务 × 4 种奖励范式 × 198 组受控实验,外加原有的 LLM 四算法(PPO/DPO/GRPO/DAPO)对比研究。**
+
+- 机器人控制套件:见 `control/`(纯 PyTorch 向量化环境,无需 MuJoCo)
+- 两篇配套论文:`papers/paper1_algo_comparison`(算法对比)、`papers/paper2_reward_design`(奖励范式设计)
+- 快速开始:`python3 control/train.py --env nav --algo ppo --reward dense --seed 0`
+- 全网格:`python3 control/sweep.py --axis all --workers 2`;图表:`python3 control/analysis.py`
+
+以下为原 LLM 对比研究完整文档。
+
+---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)]()

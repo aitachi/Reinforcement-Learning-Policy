@@ -1,0 +1,28 @@
+{
+ "env": "nav",
+ "algo": "ppo",
+ "reward": "curriculum",
+ "seed": 0,
+ "total_steps": 409600,
+ "wall_s": 167.6,
+ "eval_success": 0.640625,
+ "eval_outcome": 0.34375,
+ "eval_len": 18.359375,
+ "eval_return": 1.0766007900238037,
+ "eval_return_std": 2.3859336376190186,
+ "last_train_metrics": {
+  "pi_loss": -0.0013219276370364241,
+  "vf_loss": 0.4857062939554453,
+  "entropy": 1.6947984658181667,
+  "approx_kl": 0.003378234889169107,
+  "clip_frac": 0.0351104736328125,
+  "log_std": -0.5715792365372181,
+  "epochs": 4,
+  "optimizer_steps": 32
+ },
+ "reward_term_audit": {
+  "mix_weight": 1.0,
+  "dense": 0.32488638162612915,
+  "sparse": 0.25
+ }
+}

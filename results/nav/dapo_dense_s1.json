@@ -1,0 +1,27 @@
+{
+ "env": "nav",
+ "algo": "dapo",
+ "reward": "dense",
+ "seed": 1,
+ "total_steps": 402427,
+ "wall_s": 206.0,
+ "eval_success": 0.28125,
+ "eval_outcome": -0.1875,
+ "eval_len": 56.640625,
+ "eval_return": -0.2482120841741562,
+ "eval_return_std": 2.4616904258728027,
+ "last_train_metrics": {
+  "pi_loss": -0.22040681540966034,
+  "ratio_dev": 0.0,
+  "clip_high_frac": 0.0,
+  "kept": 1555.0,
+  "group_std": 0.613604724407196,
+  "success": 0.5625,
+  "log_std": -0.5023245215415955,
+  "optimizer_steps": 1,
+  "episode_return_mean": 0.2568208575248718,
+  "episode_success": 0.5625,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

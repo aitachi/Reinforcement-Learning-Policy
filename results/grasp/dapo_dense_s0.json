@@ -1,0 +1,29 @@
+{
+ "env": "grasp",
+ "algo": "dapo",
+ "reward": "dense",
+ "seed": 0,
+ "total_steps": 512000,
+ "wall_s": 84.9,
+ "eval_success": 0.0,
+ "eval_outcome": 0.0,
+ "eval_len": 160.0,
+ "eval_return": -3.0902693271636963,
+ "eval_return_std": 0.4313022196292877,
+ "diag_dist": 0.2997916638851166,
+ "diag_grasp": 0.0,
+ "diag_grip": 0.5006741285324097,
+ "diag_height": 0.008174999617040157,
+ "last_train_metrics": {
+  "pi_loss": 0.0,
+  "kept": 0.0,
+  "ratio_dev": 0.0,
+  "group_std": 0.6900744438171387,
+  "success": 0.0,
+  "optimizer_steps": 0,
+  "episode_return_mean": -1.751792311668396,
+  "episode_success": 0.0,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

@@ -1,0 +1,27 @@
+{
+ "env": "nav",
+ "algo": "grpo",
+ "reward": "pbs",
+ "seed": 2,
+ "total_steps": 403632,
+ "wall_s": 66.9,
+ "eval_success": 0.328125,
+ "eval_outcome": 0.328125,
+ "eval_len": 101.109375,
+ "eval_return": 4.883787631988525,
+ "eval_return_std": 1.4588899612426758,
+ "last_train_metrics": {
+  "pi_loss": -0.3423580564558506,
+  "ratio_dev": 0.0023248430516105145,
+  "clip_high_frac": 0.0,
+  "kept": 6150.0,
+  "group_std": 0.8041532039642334,
+  "success": 0.421875,
+  "log_std": -0.50104820728302,
+  "optimizer_steps": 4,
+  "episode_return_mean": 1.6608428955078125,
+  "episode_success": 0.421875,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

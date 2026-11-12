@@ -1,0 +1,26 @@
+{
+ "env": "nav",
+ "algo": "trpo",
+ "reward": "curriculum",
+ "seed": 1,
+ "total_steps": 409600,
+ "wall_s": 166.0,
+ "eval_success": 0.609375,
+ "eval_outcome": 0.21875,
+ "eval_len": 8.21875,
+ "eval_return": 0.9445122480392456,
+ "eval_return_std": 2.4477744102478027,
+ "last_train_metrics": {
+  "pi_loss": -0.007816343568265438,
+  "vf_loss": 0.4655743045732379,
+  "trpo_accept": 1.0,
+  "post_kl": 0.007392456289380789,
+  "log_std": -0.7610724568367004,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "mix_weight": 1.0,
+  "dense": 0.15599995851516724,
+  "sparse": 0.078125
+ }
+}

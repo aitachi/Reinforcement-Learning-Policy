@@ -1,0 +1,27 @@
+{
+ "env": "hopper",
+ "algo": "grpo",
+ "reward": "pbs",
+ "seed": 1,
+ "total_steps": 600047,
+ "wall_s": 225.2,
+ "eval_success": 0.0,
+ "eval_outcome": 0.09828731417655945,
+ "eval_len": 8.578125,
+ "eval_return": 1.4762812852859497,
+ "eval_return_std": 0.2512759864330292,
+ "last_train_metrics": {
+  "pi_loss": 0.05108584463596344,
+  "ratio_dev": 0.0,
+  "clip_high_frac": 0.0,
+  "kept": 1145.0,
+  "group_std": 0.031949494034051895,
+  "success": 0.0,
+  "log_std": -0.5339674949645996,
+  "optimizer_steps": 1,
+  "episode_return_mean": 4.829840660095215,
+  "episode_success": 0.0,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

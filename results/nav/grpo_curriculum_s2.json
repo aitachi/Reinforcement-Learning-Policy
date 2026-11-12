@@ -1,0 +1,27 @@
+{
+ "env": "nav",
+ "algo": "grpo",
+ "reward": "curriculum",
+ "seed": 2,
+ "total_steps": 403251,
+ "wall_s": 74.2,
+ "eval_success": 0.390625,
+ "eval_outcome": 0.015625,
+ "eval_len": 46.1875,
+ "eval_return": 0.5220120549201965,
+ "eval_return_std": 2.7068045139312744,
+ "last_train_metrics": {
+  "pi_loss": -0.1298680305480957,
+  "ratio_dev": 0.0012502400592590372,
+  "clip_high_frac": 0.0,
+  "kept": 5466.0,
+  "group_std": 0.4949728846549988,
+  "success": 0.5625,
+  "log_std": -0.5035480856895447,
+  "optimizer_steps": 3,
+  "episode_return_mean": 0.5490005612373352,
+  "episode_success": 0.5625,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}
