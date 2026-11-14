@@ -1,697 +1,220 @@
 # Reinforcement-Learning-Policy
 
-**A comprehensive, open comparison of policy-optimization algorithms across
-two domains: LLM post-training and robot control.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
 
-强化学习策略优化全方位对比项目:横跨 **LLM 后训练** 与 **机器人控制** 两个领域的算法对比、奖励范式设计与可复现实验套件。
+**An open, two-track comparison of policy-optimization algorithms: the current
+v2 suite targets robot control; the preserved v1 track covers LLM
+post-training.**
+
+强化学习策略优化对比项目:当前 **v2** 聚焦**机器人控制**,完整保留的 **v1** 为大模型后训练研究。
+
+**Language / 语言:** [English](README.md) | [中文](README_CN.md)
 
 ---
 
-## What is in this repository
+## Track map — read this first / 双轨道导航
 
-| Domain | Algorithms | Tasks | Entry |
-|---|---|---|---|
-| **Robot control** (new) | PPO-Clip, PPO-KL, PPO-RB, TR-PPO-RB, ESPO, PPG, TRPO, A2C, GRPO-C, DAPO-C, SAC (11) | E1 obstacle navigation, E2 monopod locomotion, E3 reach-grasp-lift | `control/` |
-| **LLM post-training** (original) | PPO, DPO, GRPO, DAPO (4) | reasoning / math QA style tasks | `algorithms/`, `run_comparison.py` |
+This repository contains **two clearly separated research tracks**. They share
+one question — *how do the trust-region proximal family and the group-relative
+family behave under controlled, budget-matched conditions, and how does the
+answer depend on the reward signal?* — but they live in different domains, in
+different directories, and are documented separately.
 
-Both halves share one research question: **how do the trust-region
-proximal family and the group-relative family behave under controlled,
-budget-matched conditions**, and how does the answer depend on the reward
-signal?
+| Track | Status | Domain | Scope | Entry |
+|---|---|---|---|---|
+| **v2 — Robot Control Suite** | **current, actively developed** | robot control: obstacle navigation, monopod locomotion, reach–grasp–lift | **12 algorithms × 3 tasks × 4 reward paradigms · 189 runs · 2 papers** | [`control/`](control/) · [`papers/`](papers/) · [`results/`](results/) |
+| **v1 — LLM Post-Training Study** | original release, complete & frozen | LLM alignment on Qwen2-1.5B | PPO / DPO / GRPO / DAPO implementations + IEEE survey (EN/CN/JA) | [`v1-llm-post-training/`](v1-llm-post-training/README.md) |
 
-## The control suite (`control/`)
+- **Go to [Part I (v2)](#part-i--robot-control-suite-v2-current)** for the robot-control comparison — this is where new work happens.
+- **Go to [Part II (v1)](#part-ii--llm-post-training-study-v1-preserved)** for a summary of the original LLM study; its full 600-line document now lives in [`v1-llm-post-training/README.md`](v1-llm-post-training/README.md).
+
+---
+
+# Part I · Robot Control Suite (v2, current)
+
+A pure-PyTorch, GPU-batched benchmark measuring **twelve** policy-optimization
+algorithms on three self-contained robot tasks under four swappable reward
+paradigms, with a fairness protocol (identical budgets, networks, optimizers,
+seeds) and per-term reward auditing.
+
+## Quick start
 
 ```bash
 # single run
-python3 control/train.py --env nav --algo ppo --reward dense --seed 0
-# full grid (resumable)
-python3 control/sweep.py --axis all --workers 2
-# figures + LaTeX tables
-python3 control/analysis.py
+python control/train.py --env nav --algo ppo --reward dense --seed 0
+# full grid, resumable
+python control/sweep.py --axis all --workers 2
+# publication figures + LaTeX tables
+python control/analysis.py
+# headline numbers + findings draft
+python control/gen_results.py
+# environment & algorithm self-tests
+python control/selftest_envs.py && python control/selftest_algos.py
 ```
 
-- **Environments** — pure PyTorch, GPU-batched (64-128 parallel episodes),
-  no MuJoCo/external physics dependency:
-  - `nav` E1: holonomic robot crossing a random obstacle field (lidar obs)
-  - `hopper` E2: 5-DOF planar monopod with series-elastic knee, assembled
-    from analytic rigid-body Jacobians
-  - `grasp` E3: velocity-controlled 3-link arm, kinematic grasp with
-    hysteresis, lift-to-success
-- **Reward paradigms** (`control/rewards/paradigms.py`): each task ships
-  with sparse / dense / potential-based (PBS) / curriculum variants; task
-  signals are decoupled from rewards, with per-term audits (reward-hacking
-  telemetry).
-- **Algorithms** (`control/algos/`): PPO family with method switch
-  (clip / adaptive-KL / rollback / trust-region rollback / early-stop),
-  PPG with auxiliary phases, TRPO with CG + backtracking, A2C, GRPO-C /
-  DAPO-C (group-relative on episode outcomes, clip-higher, dynamic
-  sampling, timeout filtering), SAC anchor.
-- **Fairness protocol**: identical collection budgets, network sizes,
-  optimizers, seeds and deterministic evaluation (64 held-out episodes at
-  full difficulty every 20k steps).
+No MuJoCo / external physics dependency — everything runs on PyTorch tensors.
 
-## Papers (built from the experiments above)
+## Environments (E1–E3)
 
-- `papers/paper1_algo_comparison/` — *From Trust Regions to Group
-  Baselines: A Unified Empirical Study of Proximal Policy Optimization
-  Families for Robot Control* (11 algorithms x 3 tasks x 3 seeds + reward
-  axis; PDF included after build)
-- `papers/paper2_reward_design/` — *Reward Paradigm Design for Robot
-  Policy Optimization* (12 audited reward functions; paradigm x algorithm
-  interaction; documented reward-hacking case study)
+| Task | Mechanism | Obs/Act | Episode | Success criterion | Budget |
+|---|---|---|---|---|---|
+| **E1 `nav`** | holonomic robot crossing a random obstacle field (8-ray lidar obs) | 14 / 2 | 150 | reach goal (≤0.06), collision terminates | 400k steps |
+| **E2 `hopper`** | 5-DOF planar monopod, series-elastic passive knee (k=18), assembled from analytic rigid-body Jacobians | 14 / 2 | 250 | displace 3 m without falling | 600k steps |
+| **E3 `grasp`** | velocity-controlled 3-link arm, kinematic grasp with hysteresis, lift-to-success | 16 / 4 | 160 | hold object 15 cm up | 500k steps |
 
-## Headline results (189 runs, dense reward, 3 seeds)
+## Reward paradigms (`control/rewards/paradigms.py`)
 
-| Algorithm | E1 Nav success | E2 Hopper displ. | E3 Grasp lift | wall-clock note |
+Each task ships **sparse / dense / potential-based (PBS) / curriculum** variants
+(12 audited reward functions in total). Task signals are decoupled from
+rewards, and every reward term is logged at training time (reward-hacking
+telemetry — see the documented grasp-flicker case study in paper 2).
+
+## Algorithms (`control/algos/`, 12)
+
+| Family | Algorithms |
+|---|---|
+| PPO proximal (method switch) | **PPO-Clip, PPO-KL** (adaptive), **PPO-RB** (rollback), **TR-PPO-RB** (trust-region rollback), **ESPO** (early-stop) |
+| Phasic / classical on-policy | **PPG, TRPO** (CG + backtracking), **A2C** |
+| Group-relative (from LLM RL) | **GRPO-C, DAPO-C** (episode-outcome baselines, clip-higher, dynamic sampling, timeout filtering) |
+| Off-policy anchors | **SAC, TD3** |
+
+## Headline results (dense reward, mean of 3 seeds, 189 runs)
+
+| Algorithm | E1 Nav success | E2 Hopper displ. | E3 Grasp lift | Wall-clock note |
 |---|---|---|---|---|
-| SAC | **0.830** | **0.899** | 0.629 | 5-8x slower |
-| TD3 | 0.434 | 0.167 | 0.000 | seed-lottery unreliable |
-| PPG | 0.673 | 0.020 | **0.998** | 39 s on E1 |
-| PPO-KL | 0.658 | **0.785** | 0.992 | |
-| PPO-RB | 0.655 | 0.669 | **0.995** | |
+| SAC | **0.830** | **0.899** | 0.629 | 5–8× slower (4403 s on E2) |
+| PPG | 0.673 | 0.020 | 0.998 | 39 s on E1 |
+| TRPO | 0.669±0.02 | 0.681 | **1.000±0.00** | CG+line-search cost |
+| PPO-KL | 0.658 | 0.785 | 0.992 | |
+| PPO-RB | 0.655 | 0.669 | 0.995 | |
+| PPO-Clip | 0.652 | 0.620 | 0.996 | ±0.17 seed scatter on E2 |
 | ESPO | 0.648 | 0.755 | 0.568 | |
 | TR-PPO-RB | 0.625 | 0.754 | 0.694 | |
-| TRPO | 0.563 | 0.485 | 0.745 | high seed variance |
+| GRPO-C | 0.557±0.07 | 0.017 | 0.000 | mid-pack only on E1 |
 | A2C | 0.547 | 0.027 | 0.059 | |
-| PPO-Clip | 0.540 | 0.426 | 0.735 | +-0.26 seed scatter on E2 |
-| GRPO-C | 0.382 | 0.060 | 0.000 | |
+| TD3 | 0.434 | 0.167 | 0.000 | seed lottery |
 | DAPO-C | 0.324 | 0.015 | 0.000 | |
 
-Key findings: trust-region safeguards (adaptive-KL / early-stop / TR-rollback)
-decide reliability on contact-rich locomotion; group-relative methods transfer
-only to outcome-shaped tasks; PBS reward shaping wins on grasping but collapses
-on locomotion (gamma<1 potential distortion). Full analysis in the two papers.
+**Key findings**
+
+1. **Trust-region safeguards decide reliability.** On contact-rich E2, the
+   variance-controlled variants (adaptive-KL / early-stop / trust-region
+   rollback) hold seed spread ≤ ±0.12 while plain clipping scatters to ±0.17.
+2. **TRPO is quietly excellent.** Under dense rewards it takes E3 with a
+   seed-perfect 1.000 and places third on E1 — earlier "high variance"
+   impressions were an artifact of mixing reward paradigms in aggregation
+   (fixed in `control/gen_results.py`; dense-only numbers above).
+3. **SAC buys peak performance on E1+E2 at 5–8× wall-clock cost; TD3 is a
+   seed lottery** (0.43±0.20 on E1, 0 on E3).
+4. **Group-relative methods (GRPO-C/DAPO-C) only fit outcome-shaped tasks.**
+   Mid-pack on the most outcome-shaped task (E1 nav), near-zero on
+   locomotion and multi-stage manipulation; notably GRPO-C under *sparse*
+   rewards on E2 (0.109) beats its own dense result (0.017) — clean terminal
+   credit suits group baselines.
+5. **Reward paradigm × algorithm interaction is real:** PBS rescues
+   sparse-reward training on E1/E3 but collapses on E2 (γ<1 potential
+   distortion); dense multi-term returns actually *pollute* the group
+   baseline.
+
+Full analysis: the two papers below + `results/findings_draft.md`.
+
+## Papers (built from these experiments)
+
+| Paper | Title | Contents |
+|---|---|---|
+| [`papers/paper1_algo_comparison/`](papers/paper1_algo_comparison/main.pdf) | *From Trust Regions to Group Baselines: A Unified Empirical Study of Proximal Policy Optimization Families for Robot Control* | 12 algorithms × 3 tasks × 3 seeds + reward axis, IEEE 6 pp, PDF included |
+| [`papers/paper2_reward_design/`](papers/paper2_reward_design/main.pdf) | *Reward Paradigm Design for Robot Policy Optimization* | 12 audited reward functions, paradigm × algorithm interaction, documented reward-hacking case study, IEEE 4 pp, PDF included |
+
+Rebuild both with `papers\build_papers.bat` (MiKTeX, zero-warning recipe).
 
 ## Results layout
 
 ```
 results/
-  <env>/<algo>_<reward>_s<seed>.csv   # per-eval learning curves
-  <env>/<algo>_<reward>_s<seed>.json  # final summary + reward term audit
+  <env>/<algo>_<reward>_s<seed>.csv   # per-eval learning curves (189 runs)
+  <env>/<algo>_<reward>_s<seed>.json  # final summary + reward-term audit
   figs/                               # publication figures (PDF) + .tex tables
+  headline.json / findings_draft.md   # distilled headline numbers
 ```
 
-## Original LLM comparative study (preserved in full)
-
-The remainder of this README (Part II below), together with
-`algorithms/`, `run_comparison.py`, `DAPO_GRPO_PPO_DPO/`, `GRPO_PPO_DPO/`,
-`docs/` and `src/`, preserves the original PPO/DPO/GRPO/DAPO study for
-LLM training, including its IEEE-style survey (EN/CN), algorithm
-derivations and trained checkpoints.
-
 ---
 
-# Part II (original document): PPO / DPO / GRPO / DAPO — A Comparative Study of Reinforcement Learning Algorithms for Large Language Model Training
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
-
-**Author:** Aitachi
-**Contact:** 44158892@qq.com
-**License:** MIT
-
-**Language / 语言 / 言語:** [English](README.md) | [中文](README_CN.md) | [日本語](README_JA.md)
-
----
-
-## Abstract
-
-This paper presents a comprehensive comparative study of four representative reinforcement learning (RL) algorithms for large language model (LLM) alignment and training: Proximal Policy Optimization (PPO, Schulman et al., 2017), Direct Preference Optimization (DPO, Rafailov et al., 2023), Group Relative Policy Optimization (GRPO, DeepSeek-AI, 2025), and Dynamic Advantage Policy Optimization (DAPO, Yu et al., 2025). We provide complete implementations based on the Qwen2-1.5B architecture and conduct a systematic comparison across multiple dimensions including mathematical formulation, architectural requirements, computational efficiency, and downstream task performance. Our experiments on the AIME 2024 benchmark demonstrate that DAPO achieves 50% accuracy, representing a 67% improvement over vanilla GRPO (30%) and surpassing DeepSeek-R1-Zero (47%). Through ablation studies, we identify dynamic sampling as the single largest contributor to this improvement (+8 points), followed by overlong filtering (+6 points). We further discuss the relationship between these algorithms and the broader RLHF literature, including REINFORCE++, KTO, and process reward models.
-
-**Paper Downloads:**
-- [English IEEE Paper (PDF, 10 pages)](docs/RL_LLM_Survey_IEEE_EN.pdf)
-- [Chinese IEEE Paper (PDF, 8 pages)](docs/RL_LLM_Survey_IEEE_CN.pdf)
-
----
-
-## Table of Contents
-
-- [1. Introduction](#1-introduction)
-- [2. Background and Notation](#2-background-and-notation)
-- [3. Algorithm Descriptions](#3-algorithm-descriptions)
-- [4. Comparative Analysis](#4-comparative-analysis)
-- [5. Experimental Evaluation](#5-experimental-evaluation)
-- [6. Discussion](#6-discussion)
-- [7. Conclusion](#7-conclusion)
-- [8. Quick Start Guide](#8-quick-start-guide)
-- [9. References](#9-references)
-- [Appendix A: Training Configuration](#appendix-a-training-configuration)
-- [Appendix B: Project Structure](#appendix-b-project-structure)
-
----
-
-## 1. Introduction
-
-### 1.1 Motivation
-
-Reinforcement learning from human feedback (RLHF) has emerged as a critical paradigm for aligning large language models with human preferences and improving their reasoning capabilities. The algorithmic landscape has evolved rapidly: from the foundational PPO algorithm (2017) that powered InstructGPT and ChatGPT, through the simplified DPO approach (2023) that eliminates explicit reward modeling, to the recent GRPO and DAPO algorithms (2025) that achieve state-of-the-art reasoning performance while dramatically reducing computational requirements.
-
-However, the proliferation of algorithms makes it difficult for researchers and practitioners to understand their relationships, trade-offs, and appropriate use cases. Each algorithm introduces distinct innovations in how rewards are computed, advantages are estimated, and policy updates are constrained.
-
-### 1.2 Contributions
-
-This work makes the following contributions:
-
-1. **Complete implementations** of all four algorithms with detailed inline documentation and mathematical annotations
-2. **Systematic comparison** across architectural requirements, loss function properties, computational costs, and benchmark performance
-3. **Ablation analysis** isolating the contribution of each DAPO innovation
-4. **Discussion with the broader literature** including REINFORCE++, KTO, IPO, and process reward models
-5. **Practical guidance** for algorithm selection across different deployment scenarios
-
-### 1.3 Paper Organization
-
-Section 2 establishes the background and unified notation. Section 3 provides detailed algorithm descriptions. Section 4 presents a multi-dimensional comparative analysis. Section 5 reports experimental results. Section 6 discusses open challenges and future directions. Section 7 concludes.
-
----
-
-## 2. Background and Notation
-
-### 2.1 RL for LLM Alignment
-
-In the context of LLM alignment, training is modeled as a **contextual bandit** problem. The model generates a complete response autoregressively before receiving a reward signal. The formal elements are:
-
-| Element | Definition |
-|:---|:---|
-| State/context $x \sim \mathcal{D}$ | Input prompt sampled from training distribution |
-| Action/response $y = (y_1, \ldots, y_T)$ | Token sequence generated by the model |
-| Policy $\pi_\theta(y \mid x)$ | Autoregressive language model parameterized by $\theta$ |
-| Reward $r(x, y) \in \mathbb{R}$ | Scalar signal evaluating response quality |
-
-The optimization objective is:
-
-$$\theta^{\ast} = \underset{\theta}{\mathrm{argmax}}\; \mathbb{E}_{x \sim \mathcal{D},\; y \sim \pi_\theta(\cdot \mid x)}\left[r(x, y)\right]$$
-
-### 2.2 The RLHF Pipeline
-
-The standard RLHF process consists of three stages:
-
-**Stage 1 -- Supervised Fine-Tuning (SFT):**
-
-$$\mathcal{L}_{\mathrm{SFT}}(\theta) = -\mathbb{E}_{(x,\, y^{\ast}) \sim \mathcal{D}_{\mathrm{demo}}}\left[\log \pi_\theta(y^{\ast} \mid x)\right]$$
-
-**Stage 2 -- Reward Model Training (Bradley-Terry):**
-
-$$\mathcal{L}_{\mathrm{RM}}(\phi) = -\mathbb{E}\left[\log \sigma\left(r_\phi(x, y_w) - r_\phi(x, y_l)\right)\right]$$
-
-**Stage 3 -- RL Policy Optimization:** Select an RL algorithm (PPO / GRPO / DAPO) to optimize the policy. DPO directly optimizes on preference pairs, bypassing stages 2 and 3 entirely.
-
-### 2.3 Unified Notation
-
-| Symbol | Definition |
-|:---|:---|
-| $\pi_\theta$ | Current policy network (the LLM being trained) |
-| $\pi_{\mathrm{ref}}$ | Reference (frozen) policy, typically the SFT model |
-| $\pi_{\theta_{\mathrm{old}}}$ | Policy parameters from the previous update step |
-| $r(x,y)$ | Reward function (learned or rule-based) |
-| $\hat{A}$ | Advantage function estimate |
-| $r_t(\theta)$ | Importance sampling ratio $\pi_\theta / \pi_{\theta_{\mathrm{old}}}$ |
-| $\varepsilon$ | PPO/GRPO symmetric clipping parameter |
-| $\varepsilon_{\mathrm{low}}, \varepsilon_{\mathrm{high}}$ | DAPO asymmetric clipping bounds |
-| $\beta$ | KL penalty coefficient or DPO temperature |
-| $G$ | Group sampling size for GRPO/DAPO |
-| $V_\phi$ | Value network (Critic) for PPO |
-| $y_w, y_l$ | Preferred and rejected responses in a preference pair |
-
----
-
-## 3. Algorithm Descriptions
-
-### 3.1 PPO -- Proximal Policy Optimization
-
-PPO, introduced by Schulman et al. (2017), remains the most widely applied RL algorithm in LLM alignment. It forms the core algorithm behind InstructGPT and ChatGPT.
-
-#### Clipped Surrogate Objective
-
-Let $r_t(\theta) = \pi_\theta(a_t \mid s_t) / \pi_{\theta_{\mathrm{old}}}(a_t \mid s_t)$ denote the probability ratio:
-
-$$L^{\mathrm{CLIP}}(\theta) = \mathbb{E}_t\left[\min\left(r_t(\theta)\hat{A}_t,\ \mathrm{clip}(r_t(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\hat{A}_t\right)\right]$$
-
-When $\hat{A}_t > 0$, the objective encourages increasing $r_t$ but clips at $1+\varepsilon$; when $\hat{A}_t < 0$, it suppresses the action but clips at $1-\varepsilon$. This creates a "flat" region in the objective that prevents catastrophically large updates.
-
-#### Combined PPO Objective
-
-$$L^{\mathrm{PPO}}(\theta, \phi) = \mathbb{E}_t\left[L^{\mathrm{CLIP}}(\theta) - c_1 L^{VF}(\phi) + c_2 S[\pi_\theta]\right]$$
-
-where $c_1 = 0.5$ (value loss coefficient), $c_2 = 0.01$ (entropy bonus coefficient).
-
-#### GAE Advantage Estimation
-
-$$\hat{A}_t^{\mathrm{GAE}} = \sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l}^{V}, \quad \delta_t^{V} = r_t + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$$
-
-#### Architecture Requirements
-
-PPO requires four model components loaded into GPU memory simultaneously:
-
-1. **Actor** (policy $\pi_\theta$): The LLM being trained
-2. **Critic** (value $V_\phi$): A separate network of comparable size to the Actor
-3. **Reference model** ($\pi_{\mathrm{ref}}$): Frozen copy for KL computation
-4. **Reward model** ($r_\psi$): Trained reward function
-
-> Memory requirement is approximately $4\times$ a single LLM forward pass. A 7-billion parameter model typically requires 4-8 A100 GPUs.
-
-![PPO Flow](docs/figures/ppo_flowchart.svg)
-
-**Strengths:** Well-studied convergence properties; robust to hyperparameter choices; compatible with arbitrary reward functions.
-
-**Limitations:** High memory overhead from the value network; training instability with sparse or noisy reward signals.
-
----
-
-### 3.2 DPO -- Direct Preference Optimization
-
-DPO, introduced by Rafailov et al. (2023), represents a paradigm shift in LLM alignment by deriving a closed-form loss function that eliminates explicit reward modeling.
-
-#### Derivation from KL-Constrained RLHF
-
-The closed-form optimal policy under the KL constraint is:
-
-$$\pi^{\ast}(y \mid x) = \frac{1}{Z(x)}\pi_{\mathrm{ref}}(y \mid x)\exp\left(\frac{1}{\beta}r(x,y)\right)$$
-
-#### DPO Loss Function
-
-$$L^{\mathrm{DPO}}(\theta) = -\mathbb{E}_{(x,y_w,y_l)}\left[\log\sigma\left(\beta \cdot h(y_w,y_l,x)\right)\right]$$
-
-$$h(y_w,y_l,x) = \log\frac{\pi_\theta(y_w \mid x)}{\pi_{\mathrm{ref}}(y_w \mid x)} - \log\frac{\pi_\theta(y_l \mid x)}{\pi_{\mathrm{ref}}(y_l \mid x)}$$
-
-where $y_w$ and $y_l$ are the preferred and rejected responses in a preference pair. $\sigma$ is the sigmoid function, and $\beta$ controls the sharpness of preference distinction.
-
-Implicit reward: $\hat{r}(x,y) = \beta \cdot \left(\log \pi_\theta(y \mid x) - \log \pi_{\mathrm{ref}}(y \mid x)\right)$
-
-![DPO Flow](docs/figures/dpo_flowchart.svg)
-
-**Strengths:** Simplest implementation; no reward model required; stable training; compatible with offline preference data.
-
-**Limitations:** Requires pre-collected preference pairs; cannot explore online; not applicable to tasks with objective reward signals.
-
----
-
-### 3.3 GRPO -- Group Relative Policy Optimization
-
-GRPO, introduced by the DeepSeek team in 2025, eliminates the value network by using group-level reward statistics as the advantage baseline, reducing GPU memory by approximately 50%.
-
-#### Group Advantage Estimation
-
-For each prompt $q$, generate $G$ responses with rewards $\{R_1, \ldots, R_G\}$:
-
-$$\hat{A}_i = \frac{R_i - \mu_G}{\sigma_G + \epsilon}, \quad \mu_G = \frac{1}{G}\sum_{j=1}^{G}R_j$$
-
-Responses with $R_i > \mu_G$ are reinforced, and those with $R_i < \mu_G$ are suppressed.
-
-#### GRPO Objective
-
-$$J_{\mathrm{GRPO}}(\theta) = \mathbb{E}_{q \sim \mathcal{D}}\left[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{\lvert o_i\rvert}\sum_{t=1}^{\lvert o_i\rvert}\min\left(r_{i,t}\hat{A}_i,\ \mathrm{clip}(r_{i,t},\, 1{-}\varepsilon,\, 1{+}\varepsilon)\hat{A}_i\right) - \beta D_{\mathrm{KL}}\right]$$
-
-KL divergence uses the unbiased estimator:
-
-$$D_{\mathrm{KL}} = \frac{\pi_{\mathrm{ref}}}{\pi_\theta} - \log\frac{\pi_{\mathrm{ref}}}{\pi_\theta} - 1$$
-
-![GRPO Flow](docs/figures/grpo_flowchart.svg)
-
-**Strengths:** Eliminates the value network (50% memory reduction); naturally suits verifiable tasks; simple engineering implementation.
-
-**Limitations:** Symmetric clipping can lead to entropy collapse; sample-level normalization biases toward shorter responses; group sampling increases inference overhead.
-
----
-
-### 3.4 DAPO -- Dynamic Advantage Policy Optimization
-
-DAPO, introduced by ByteDance in 2025, extends GRPO with three innovations, achieving **50% accuracy** on AIME 2024 (compared to 30% for vanilla GRPO, a 67% improvement).
-
-#### Innovation 1: Asymmetric Clip-Higher
-
-GRPO's symmetric clipping $[1-\varepsilon,\, 1+\varepsilon]$ progressively leads to policy entropy collapse. DAPO uses a wider upper bound:
-
-$$\mathrm{clip}(r_t,\ 1-\varepsilon_{\mathrm{low}},\ 1+\varepsilon_{\mathrm{high}}), \quad \varepsilon_{\mathrm{low}}=0.2,\ \varepsilon_{\mathrm{high}}=0.28$$
-
-The upper bound is expanded by 40% (0.28 vs 0.20), allowing tokens with positive advantage to increase their probability more aggressively, thereby maintaining exploration capacity.
-
-![Clip-Higher](docs/figures/ieee_fig4_clip_higher.svg)
-
-#### Innovation 2: Dynamic Sampling
-
-When all $G$ responses for a prompt are either entirely correct or entirely incorrect, the advantage is zero and the gradient is invalid. DAPO filters these batches:
-
-**Filtering condition:** let $n_c = \sum_{i=1}^{G} \mathbf{1}[\mathrm{correct}(o_i)]$, then:
-
-$$0 < n_c < G$$
-
-This guarantees that every training batch has non-zero advantage and valid gradient updates.
-
-#### Innovation 3: Token-Level Loss Normalization
-
-GRPO's sample-level normalization $\frac{1}{G}\sum_i$ biases toward shorter responses. DAPO normalizes by total token count:
-
-$$J_{\mathrm{DAPO}}(\theta) = \mathbb{E}\left[\frac{1}{\displaystyle\sum_{i=1}^{G}\lvert o_i\rvert}\sum_{i=1}^{G}\sum_{t=1}^{\lvert o_i\rvert} \ell_{i,t}\right]$$
-
-$$\ell_{i,t} = \min\left(r_{i,t}\hat{A}_i,\ \mathrm{clip}(r_{i,t},\, 1-\varepsilon_{\mathrm{low}},\, 1+\varepsilon_{\mathrm{high}})\hat{A}_i\right)$$
-
-Each token contributes equally to the gradient, eliminating length bias.
-
-![Token vs Sample](docs/figures/ieee_fig5_token_sample.svg)
-
-#### Overlong Reward Shaping
-
-$$R_{\mathrm{length}}(y) = \begin{cases} 0 & \lvert y\rvert \leq L_{\max} - L_{\mathrm{cache}} \\ \frac{L_{\max} - L_{\mathrm{cache}} - \lvert y\rvert}{L_{\mathrm{cache}}} & L_{\max} - L_{\mathrm{cache}} < \lvert y\rvert \leq L_{\max} \\ -1 & \lvert y\rvert > L_{\max} \end{cases}$$
-
-![DAPO Flow](docs/figures/dapo_flowchart.svg)
-
----
-
-## 4. Comparative Analysis
-
-### 4.1 Architecture Comparison
-
-| Dimension | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| Year | 2017 | 2023 | 2025 | 2025 |
-| Value Network | Required | Not required | Not required | Not required |
-| Reward Model | Explicit RM | Implicit | Rule-based | Rule-based |
-| Reference Model | Optional | Required | Required | Required |
-| Clipping Strategy | Symmetric | None | Symmetric | **Asymmetric** |
-| Clipping Range | [0.8, 1.2] | N/A | [0.8, 1.2] | **[0.8, 1.28]** |
-| Loss Granularity | Token-level | Sequence-level | Sample-level | **Token-level** |
-| Group Sampling | No | No | Fixed G=16 | Dynamic |
-| KL Constraint | None | Implicit | Explicit penalty | **Removed** |
-| Training Data | Online sampling | Offline preferences | Online sampling | Online sampling |
-| Relative GPU Memory | ~2.0x | ~1.0x | ~1.0x | ~1.2x |
-
-### 4.2 Theoretical Properties Comparison
-
-| Property | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| Learning Mode | Online | Offline | Online | Online |
-| Policy Type | On-policy | Off-policy | On-policy | On-policy |
-| Convergence Guarantee | Monotonic under KL constraint | Bradley-Terry consistency | Inherits PPO properties | Inherits GRPO properties |
-| Gradient Variance | Medium (GAE reduces) | Low (closed-form) | Medium (group stats) | Low (token-level) |
-| Reward Hacking Risk | High (learned RM) | Low (fixed preferences) | Low (rule-based) | Low (rule-based) |
-
-### 4.3 GRPO vs DAPO: Key Differences
-
-| Dimension | GRPO | DAPO |
-|:---|:---|:---|
-| Clipping Range | $[1-\varepsilon,\, 1+\varepsilon]$ symmetric | $[1-\varepsilon_l,\, 1+\varepsilon_h]$ asymmetric |
-| Loss Normalization | $\frac{1}{G}\sum_i$ (sample-level) | $\frac{1}{\sum_i \lvert o_i\rvert}\sum_i\sum_t$ (token-level) |
-| Batch Filtering | None (fixed G=16) | Dynamic ($0 < n_c < G$) |
-| KL Penalty | $\beta D_{\mathrm{KL}}$ (explicit) | Removed (Clip-Higher suffices) |
-
-### 4.4 Algorithm Evolution Trajectory
-
-```
-PPO (2017)  -->  DPO (2023)  : Eliminates reward model, closed-form loss
-    |
-    +-->  GRPO (2025) : Eliminates value network, memory -50%
-              |
-              +-->  DAPO (2025) : Clip-Higher + Dynamic Sampling + Token-level Loss
-                                   AIME accuracy: 30% --> 50% (+67%)
-```
-
-### 4.5 Discussion with Existing Literature
-
-**REINFORCE++ and RLOO.** Ahmadian et al. (2024) and oubi et al. (2024) propose variance-reduced policy gradient methods that serve as alternatives to PPO's clipped surrogate. GRPO's group advantage normalization can be viewed as a structured variance reduction strategy: by computing the baseline as the mean of $G$ samples from the same prompt, it achieves lower variance than REINFORCE without requiring a learned value function. RLOO (Leave-One-Out) further reduces variance by using the mean of the remaining $G-1$ samples as the baseline for each sample, which is mathematically equivalent to GRPO's leave-one-out advantage estimation.
-
-**KTO (Kahneman-Tversky Optimization).** Ethayarajh et al. (2024) propose a non-pairwise preference optimization method based on prospect theory. Unlike DPO, which requires paired preference data $(y_w, y_l)$, KTO operates on individual examples with binary feedback (desirable/undesirable). This reduces data collection costs but sacrifices the relative ranking signal that DPO exploits. In practice, KTO is preferable when preference pairs are unavailable, while DPO is superior when high-quality paired data exists.
-
-**IPO (Identity Preference Optimization).** Azar et al. (2024) show that DPO's Bradley-Terry assumption can be overly strong and propose IPO with a different loss function that directly optimizes the KL-regularized objective without the BT assumption. IPO provides better theoretical guarantees but may underperform DPO empirically when the BT assumption approximately holds.
-
-**Online vs Offline RLHF.** A fundamental distinction exists between online methods (PPO, GRPO, DAPO) that interactively sample and evaluate responses during training, and offline methods (DPO) that learn from fixed preference datasets. Gulcehre et al. (2023) demonstrate that online methods generally achieve higher asymptotic performance but at greater computational cost, while offline methods are more sample-efficient per iteration but may plateau at lower performance.
-
-**DeepSeek-R1-Zero vs DeepSeek-R1.** While our benchmarks report DeepSeek-R1-Zero achieving 47% on AIME 2024, the full DeepSeek-R1 model incorporates cold-start data and multi-stage training (GRPO fine-tuning on high-quality reasoning chains), achieving even higher performance. This highlights the complementary value of supervised fine-tuning and RL-based optimization.
-
-**Reward Hacking and Overoptimization.** Gao et al. (2023) demonstrate that PPO-based RLHF is susceptible to reward hacking, where the policy learns to exploit flaws in the learned reward model rather than genuinely improving. GRPO and DAPO partially mitigate this by using rule-based rewards for verifiable tasks (mathematics, coding), though this limits their applicability to domains with objective evaluation criteria.
-
-**Process Reward Models (PRM) vs Outcome Reward Models (ORM).** All four algorithms in this study use outcome-level rewards that evaluate the final response. Lightman et al. (2023) and Snell et al. (2024) show that process reward models, which provide step-level feedback, can significantly improve reasoning performance. Integrating PRMs with GRPO or DAPO represents a promising research direction, where each reasoning step receives individual reward signals rather than a single outcome reward.
-
-### 4.6 Visualizations
-
-**Convergence Curves**
-![Convergence](docs/figures/ieee_fig1_convergence.svg)
-
-**Multi-dimensional Radar Chart**
-![Radar](docs/figures/ieee_fig7_radar.svg)
-
-**3D Performance Landscape**
-![3D Surface](docs/figures/ieee_fig8_3d_surface.png)
-
-**Loss Curves**
-![Loss](docs/figures/comparison_loss_curves_2d.svg)
-
-**Reward Curves**
-![Reward](docs/figures/comparison_reward_curves_2d.svg)
-
----
-
-## 5. Experimental Evaluation
-
-### 5.1 Small-Scale Experiments (Qwen2.5-0.5B)
-
-| Metric | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| Training Time (s) | 412 | **198** | 245 | 280 |
-| Final Loss | 0.1156 | 0.0945 | 0.0823 | **0.0651** |
-| Final Reward | 7.65 | 7.89 | 8.24 | **9.52** |
-| GPU Memory (GB) | 9.8 | 6.8 | **6.2** | 7.0 |
-| Throughput (samples/s) | 12.4 | **28.6** | 18.2 | 16.1 |
-
-### 5.2 AIME 2024 Benchmark (Qwen2.5-32B, k=32)
-
-| Algorithm | avg@32 | pass@32 | cons@32 |
-|:---|:---|:---|:---|
-| Vanilla GRPO | 30% | --- | --- |
-| DeepSeek-R1-Zero | 47% | 60% | 62% |
-| **DAPO** | **50%** | **75%** | **78%** |
-
-### 5.3 Ablation Study
-
-| Configuration | AIME Score | $\Delta$ |
-|:---|:---|:---|
-| Baseline (vanilla GRPO) | 30 | --- |
-| + Overlong Filtering | 36 | +6 |
-| + Clip-Higher ($\varepsilon_h = 0.28$) | 38 | +2 |
-| + Soft Overlong Penalty | 41 | +3 |
-| + Token-Level Loss | 42 | +1 |
-| + Dynamic Sampling (full DAPO) | **50** | +8 |
-
-> **Key finding:** Dynamic sampling contributes the largest single improvement (+8 points), followed by overlong filtering (+6 points).
-
-![Ablation](docs/figures/ieee_fig9_ablation.svg)
-
----
-
-## 6. Discussion
-
-### 6.1 Algorithm Selection Guide
-
-| Scenario | Recommended Algorithm | Rationale |
-|:---|:---|:---|
-| Subjective alignment with preference data | **DPO** | Simplest implementation, stable training |
-| Resource-constrained efficient inference | **GRPO** | Best memory efficiency |
-| Maximum reasoning performance | **DAPO** | Highest AIME score, long CoT advantage |
-| Tasks requiring learned reward models | **PPO** | Theoretical guarantees, general RL |
-
-### 6.2 Open Challenges
-
-1. **Scalability to 100B+ parameters:** Group methods require $G$ forward passes per prompt, which is prohibitively expensive for ultra-large models
-2. **Reward specification for open-ended tasks:** Mathematical reasoning benefits from rule-based rewards, but creative writing remains challenging
-3. **Length exploitation:** Models may learn to generate unnecessarily long chain-of-thought reasoning
-4. **Sample efficiency:** Group methods cost $G\times$ more than single-sample methods
-5. **Multi-objective optimization:** Real deployments must simultaneously balance accuracy, safety, and helpfulness
-
-### 6.3 Promising Research Directions
-
-1. **Hybrid methods:** DPO's offline preference learning combined with DAPO's token-level online optimization
-2. **Process Reward Models (PRM):** Step-level reward signals to replace outcome-level rewards
-3. **Adaptive group sampling:** Dynamically adjusting $G$ based on prompt difficulty
-4. **Speculative decoding acceleration:** Reducing group sampling overhead in GRPO/DAPO
-5. **Meta-learning algorithm selection:** Automatically selecting the optimal RL algorithm for a given task
-
----
-
-## 7. Conclusion
-
-The four algorithms studied represent a clear evolutionary trajectory in LLM training:
-
-- **PPO** (2017) established the clipped surrogate foundation and dual-network architecture that supported the first generation of aligned LLMs
-- **DPO** (2023) dramatically simplified the RLHF pipeline by eliminating explicit reward modeling through a closed-form Bradley-Terry loss
-- **GRPO** (2025) eliminated the value network through group advantage normalization, reducing memory by ~50%
-- **DAPO** (2025) introduced three innovations -- asymmetric Clip-Higher, dynamic sampling, and token-level loss normalization -- that collectively improved AIME 2024 accuracy by 67% (30% to 50%)
-
-The trend is clear: from general-purpose RL algorithms (PPO) toward LLM-specific methods (GRPO, DAPO) that exploit the unique structure of language model training, particularly the availability of verifiable rewards and the token-level granularity of the generation process.
-
----
-
-## 8. Quick Start Guide
-
-> **Prerequisites:** GPU environment + pre-downloaded `Qwen/Qwen2.5-0.5B-Instruct` model. Data file `data/sample_reasoning_data.json` is provided.
+# Part II · LLM Post-Training Study (v1, preserved)
+
+The original study that founded this repository: complete implementations of
+**PPO, DPO, GRPO, DAPO** for LLM alignment on Qwen2-1.5B, with an IEEE-style
+survey (EN/CN), algorithm derivations, trained checkpoints and an AIME-2024
+ablation (dynamic sampling +8 pts, overlong filtering +6 pts).
+
+**Everything of v1 lives in [`v1-llm-post-training/`](v1-llm-post-training/README.md) and runs from that directory** —
+its full README (with the complete algorithm treatise), Japanese edition,
+`algorithms/`, `docs/` (IEEE LaTeX sources + PDFs), experiment outputs and
+checkpoints:
 
 ```bash
-# Install dependencies
+cd v1-llm-post-training
 pip install -r requirements.txt
-
-# PPO training (requires Policy + Value dual networks)
-python algorithms/ppo_trainer.py
-
-# DPO training (requires preference pair data)
-python algorithms/dpo_trainer.py
-
-# GRPO training (group sampling, no Value Network)
-python algorithms/grpo_trainer.py
-
-# DAPO training (dynamic sampling + token-level loss)
-python algorithms/dapo_trainer.py
-
-# Run all four algorithms comparison
-python run_comparison.py
-
-# Generate all visualization figures
-cd docs && python generate_all_figures.py
+python run_comparison.py        # four-algorithm comparison
 ```
-
-> **Hyperparameter modification:** Each algorithm's hyperparameters are in `algorithms/xxx_trainer.py` within the `XxxConfig` class.
 
 ---
 
-## 9. References
+# Repository layout
 
-[1] J. Schulman et al., "Proximal policy optimization algorithms," arXiv:1707.06347, 2017.
+```
+Reinforcement-Learning-Policy/
+│
+├── README.md / README_CN.md        # this file — v2-first, two-track navigation
+├── PROJECT_STRUCTURE.md            # annotated directory map (both tracks)
+├── LICENSE / requirements.txt / .gitignore
+│
+├── control/                        # [v2] robot-control suite
+│   ├── envs/                       #   nav_obstacle / hopper_lite / reach_grasp
+│   ├── rewards/paradigms.py        #   sparse / dense / pbs / curriculum × 3 tasks
+│   ├── algos/                      #   ppo_family / trpo / grpo_dapo / sac / td3 / nets
+│   ├── train.py                    #   unified entry
+│   ├── sweep.py                    #   full-grid scheduler (resumable)
+│   ├── analysis.py                 #   publication figures + LaTeX tables
+│   ├── gen_results.py              #   headline.json + findings_draft.md
+│   ├── configs.py                  #   fairness-protocol hyper-parameters
+│   └── selftest_envs.py / selftest_algos.py
+│
+├── papers/                         # [v2] two papers (IEEEtran, PDFs included)
+│   ├── paper1_algo_comparison/     #   algorithm comparison
+│   ├── paper2_reward_design/       #   reward paradigm design
+│   └── build_papers.bat
+│
+├── results/                        # [v2] 189 runs + figures + distilled numbers
+│
+└── v1-llm-post-training/           # [v1] LLM post-training study (frozen)
+    ├── README.md / README_CN.md / README_JA.md   # full treatise (EN/CN/JA)
+    ├── algorithms/                 #   ppo / dpo / grpo / dapo trainers
+    ├── docs/                       #   IEEE survey (PDF + LaTeX), deep dives, figures
+    ├── data / models / checkpoints / scripts / src
+    ├── DAPO_GRPO_PPO_DPO/          #   four-algorithm experiment outputs + weights
+    ├── GRPO_PPO_DPO/               #   earlier three-algorithm outputs
+    ├── run_comparison.py / requirements.txt
+    └── DAPO.pdf / DeepSeek_R1.pdf / analysis reports  # reference papers & notes
+```
 
-[2] J. Schulman et al., "High-dimensional continuous control using generalized advantage estimation," in Proc. ICLR, 2016.
+# Version history
 
-[3] R. Rafailov, A. Sharma, E. Mitchell, S. Ermon, C. D. Manning, and C. Finn, "Direct preference optimization: Your language model is secretly a reward model," in Proc. NeurIPS, 2023.
+| Version | Date | Contents |
+|---|---|---|
+| v1 (3.0.0) | 2025-04 | Initial public release: PPO/DPO/GRPO/DAPO LLM study (originally `deepseek_r1_qwen2-1.5b`, later `PPOvDPOvGRPOvDAPO`) |
+| v2 | 2026-11 | Robot-control suite: 12 algorithms × 3 tasks × 4 reward paradigms, 189 runs, two papers |
+| v2.1 | 2026-11-14 | This restructure: versioned directories (`v1-llm-post-training/`), **corrected aggregation bugs in `gen_results.py`** (dense-only rankings; per-algorithm reward axis), papers rebuilt with corrected narrative + restored result tables, README split into two tracks |
 
-[4] DeepSeek-AI, "DeepSeek-R1: Incentivizing reasoning capability in LLMs via reinforcement learning," arXiv:2501.12948, 2025.
-
-[5] Q. Yu et al., "DAPO: An open-source LLM reinforcement learning system," arXiv:2503.14476, 2025.
-
-[6] L. Ouyang et al., "Training language models to follow instructions with human feedback," in Proc. NeurIPS, 2022.
-
-[7] P. F. Christiano et al., "Deep reinforcement learning from human preferences," in Proc. NeurIPS, 2017.
-
-[8] K. Ethayarajh et al., "KTO: Model alignment as prospect theoretic optimization," arXiv:2402.01306, 2024.
-
-[9] M. G. Azar et al., "A general theoretical paradigm to understand learning from human preferences," in Proc. AISTATS, 2024.
-
-[10] L. Gao, J. Schulman, and J. Hilton, "Scaling laws for reward model overoptimization," in Proc. ICML, 2023.
-
-[11] H. Lightman et al., "Let's verify step by step," in Proc. ICLR, 2024.
-
-[12] C. Snell et al., "Scaling LLM test-time compute optimally can be more effective than scaling model parameters," arXiv:2408.03314, 2024.
-
-[13] Z. Guo et al., "DeepSeekMath: Pushing the limits of mathematical reasoning in open language models," arXiv:2402.03300, 2024.
-
-[14] A. Yang et al., "Qwen2.5 technical report," arXiv:2412.15115, 2024.
-
-[15] D. M. Ziegler et al., "Fine-tuning language models from human preferences," arXiv:1909.08593, 2019.
-
-[16] N. Stiennon et al., "Learning to summarize with human feedback," in Proc. NeurIPS, vol. 33, pp. 3008–3021, 2020.
-
-[17] Y. Bai et al., "Constitutional AI: Harmlessness from AI feedback," arXiv:2212.08073, 2022.
-
-[18] A. Glaese et al., "Improving alignment of dialogue agents via targeted human judgements," arXiv:2209.14375, 2022.
-
-[19] J. Wei et al., "Chain-of-thought prompting elicits reasoning in large language models," in Proc. NeurIPS, vol. 35, 2022.
-
-[20] S. Yao et al., "Tree of thoughts: Deliberate problem solving with large language models," in Proc. NeurIPS, 2023.
-
-[21] N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao, "Reflexion: Language agents with verbal reinforcement learning," in Proc. NeurIPS, 2023.
-
-[22] K. Cobbe et al., "Training verifiers to solve math word problems," arXiv:2110.14168, 2021.
-
-[23] D. Hendrycks et al., "Measuring mathematical problem solving with the MATH dataset," in Proc. NeurIPS, vol. 34, 2021.
-
-[24] J. Schulman et al., "Trust region policy optimization," in Proc. ICML, 2015.
-
-[25] R. J. Williams, "Simple statistical gradient-following algorithms for connectionist reinforcement learning," Mach. Learn., vol. 8, no. 3–4, pp. 229–256, 1992.
-
-[26] H. Lee, S. Phatale, H. Mansoor, K. Lu, T. Mesnard, J. Ferret, and C. Bishop, "RLAIF: Scaling reinforcement learning from human feedback with AI feedback," arXiv:2309.00267, 2023.
-
-[27] J. Uesato et al., "Solving math word problems with process- and outcome-based feedback," arXiv:2211.14275, 2022.
-
-[28] E. Zelikman, Y. Wu, J. Mu, and N. D. Goodman, "STaR: Bootstrapping reasoning with reasoning," in Proc. NeurIPS, vol. 35, 2022.
-
-[29] W. Yuan, R. Y. Pang et al., "Self-rewarding language models," in Proc. ICML, 2024.
-
-[30] Y. Wu, Z. Sun, H. Yuan, K. Ji, Y. Yang, and Q. Gu, "Self-play preference optimization for language model alignment," arXiv:2405.00675, 2024.
-
-[31] C. Rosset et al., "Direct Nash optimization: Teaching language models to self-improve with general preferences," arXiv:2404.03715, 2024.
-
-[32] N. Lambert et al., "RewardBench: Evaluating reward models for language modeling," arXiv:2403.13787, 2024.
-
-[33] A. Kumar et al., "Training language models to self-correct via reinforcement learning," arXiv:2409.12917, 2024.
-
-[34] Y. Meng, M. Xia, and D. Chen, "SimPO: Simple preference optimization with a reference-free reward," in Proc. NeurIPS, 2024.
-
-[35] Z. Li et al., "ReMax: A simple, effective, and efficient reinforcement learning method for aligning large language models," in Proc. ICML, 2024.
+# Citation
 
 ```bibtex
-@software{aitachi2025rl_comparison,
+@software{aitachi2026rlp,
   author = {Aitachi},
-  title = {PPO / DPO / GRPO / DAPO: A Comparative Study of RL Algorithms for LLM Training},
-  year = {2025},
-  url = {https://github.com/aitachi/PPOvDPOvGRPOvDAPO}
+  title = {Reinforcement-Learning-Policy: A Two-Track Comparison of Policy-Optimization Algorithms for Robot Control and LLM Post-Training},
+  year = {2026},
+  url = {https://github.com/aitachi/Reinforcement-Learning-Policy}
 }
 ```
 
----
-
-## Appendix A: Training Configuration
-
-| Parameter | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| Learning Rate | 1e-5 | 5e-6 | 1e-5 | 1e-5 |
-| Clip Epsilon | 0.2 | - | 0.2 | 0.2 / 0.28 (asymmetric) |
-| KL Coefficient | - | 0.1 | 0.01 | Removed |
-| Group Size | - | - | 16 | Dynamic |
-| Max Length | 512 | 512 | 512 | 1024 |
-
----
-
-## Appendix B: Project Structure
-
-![Project Map](docs/figures/project_map.svg)
-
-```
-PPOvDPOvGRPOvDAPO/
-├── algorithms/                    # Core implementations
-│   ├── ppo_trainer.py            # PPO trainer
-│   ├── dpo_trainer.py            # DPO trainer
-│   ├── grpo_trainer.py           # GRPO trainer
-│   └── dapo_trainer.py           # DAPO trainer
-├── docs/                          # Documentation & visualizations
-│   ├── PPO_Algorithm.md          # PPO deep dive
-│   ├── DPO_Algorithm.md          # DPO deep dive
-│   ├── GRPO_Algorithm.md         # GRPO deep dive
-│   ├── DAPO_Algorithm.md         # DAPO deep dive
-│   ├── Algorithm_Comparison.md   # Full comparison
-│   ├── RL_LLM_Survey_IEEE_EN.pdf # English IEEE paper
-│   ├── RL_LLM_Survey_IEEE_CN.pdf # Chinese IEEE paper
-│   ├── ieee_en/                  # English LaTeX source
-│   ├── ieee_cn/                  # Chinese LaTeX source
-│   └── figures/                  # All visualization images
-├── src/                           # Source code
-├── data/                          # Training data
-├── scripts/                       # Helper scripts
-├── run_comparison.py              # Algorithm comparison runner
-└── requirements.txt               # Dependencies
-```
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-- DeepSeek-AI team for GRPO algorithm and DeepSeek-R1 paper
-- ByteDance for DAPO algorithm and open-source release
-- OpenAI for PPO algorithm
-- Stanford NLP group for DPO algorithm
-- Hugging Face for Transformers library
-- Qwen team for base models
-
----
-
-**Last updated:** 2025-04-17
-**Version:** 3.0.0
+**Author:** Aitachi · **Contact:** 44158892@qq.com · **License:** MIT

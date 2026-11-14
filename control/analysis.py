@@ -10,6 +10,9 @@ import os
 
 import numpy as np
 
+# numpy 2.x renamed trapz -> trapezoid; support both
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -120,7 +123,7 @@ def final_metrics(env, reward="dense"):
                 continue
             grid = np.linspace(0, 1, 100)
             y = np.interp(grid, runs[k]["steps"] / ENV_TOTAL[env], runs[k][metric])
-            auc.append(np.trapz(y, grid))
+            auc.append(_trapezoid(y, grid))
         out.append({"algo": a, "final": np.mean(finals), "final_std": np.std(finals),
                     "auc": np.mean(auc), "auc_std": np.std(auc),
                     "cv_seeds": np.std(finals) / (abs(np.mean(finals)) + 1e-9),

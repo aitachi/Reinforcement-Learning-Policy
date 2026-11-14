@@ -3,15 +3,15 @@
 ## E1 Nav (dense, final mean±std / AUC / wall)
 - sac: 0.830±0.027 auc=0.561 wall=2847s
 - ppg: 0.673±0.037 auc=0.633 wall=39s
+- trpo: 0.669±0.023 auc=0.616 wall=335s
 - ppo_kl: 0.658±0.035 auc=0.625 wall=338s
 - ppo_rb: 0.655±0.013 auc=0.655 wall=239s
+- ppo: 0.652±0.021 auc=0.663 wall=336s
 - espo: 0.648±0.043 auc=0.560 wall=293s
 - tr_ppo_rb: 0.625±0.016 auc=0.494 wall=312s
-- trpo: 0.563±0.144 auc=0.508 wall=196s
+- grpo: 0.557±0.070 auc=0.425 wall=236s
 - a2c: 0.547±0.020 auc=0.439 wall=317s
-- ppo: 0.540±0.150 auc=0.549 wall=268s
 - td3: 0.434±0.202 auc=0.430 wall=967s
-- grpo: 0.382±0.120 auc=0.345 wall=103s
 - dapo: 0.324±0.032 auc=0.301 wall=214s
 
 ## E2 Hopper (dense, final mean±std / AUC / wall)
@@ -19,27 +19,27 @@
 - ppo_kl: 0.785±0.121 auc=0.419 wall=555s
 - espo: 0.755±0.035 auc=0.612 wall=759s
 - tr_ppo_rb: 0.754±0.073 auc=0.546 wall=639s
+- trpo: 0.681±0.086 auc=0.404 wall=986s
 - ppo_rb: 0.669±0.136 auc=0.348 wall=572s
-- trpo: 0.485±0.240 auc=0.329 wall=490s
-- ppo: 0.426±0.257 auc=0.259 wall=554s
+- ppo: 0.620±0.165 auc=0.329 wall=532s
 - td3: 0.167±0.000 auc=0.165 wall=2364s
-- grpo: 0.060±0.044 auc=0.045 wall=558s
 - a2c: 0.027±0.003 auc=0.011 wall=587s
 - ppg: 0.020±0.003 auc=0.025 wall=947s
+- grpo: 0.017±0.003 auc=0.013 wall=1388s
 - dapo: 0.015±0.001 auc=0.012 wall=1710s
 
 ## E3 Grasp (dense, final mean±std / AUC / wall)
+- trpo: 1.000±0.000 auc=0.692 wall=333s
 - ppg: 0.998±0.001 auc=0.649 wall=40s
+- ppo: 0.996±0.003 auc=0.640 wall=356s
 - ppo_rb: 0.995±0.001 auc=0.626 wall=221s
 - ppo_kl: 0.992±0.006 auc=0.616 wall=304s
-- trpo: 0.745±0.430 auc=0.452 wall=611s
-- ppo: 0.735±0.420 auc=0.395 wall=261s
 - tr_ppo_rb: 0.694±0.162 auc=0.371 wall=210s
 - sac: 0.629±0.229 auc=0.365 wall=3033s
 - espo: 0.568±0.138 auc=0.373 wall=181s
 - a2c: 0.059±0.084 auc=0.008 wall=165s
 - dapo: 0.000±0.000 auc=0.000 wall=102s
-- grpo: 0.000±0.000 auc=0.000 wall=72s
+- grpo: 0.000±0.000 auc=0.000 wall=93s
 - td3: 0.000±0.000 auc=0.000 wall=1774s
 
 ## E1 Nav reward axis

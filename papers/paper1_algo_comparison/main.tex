@@ -48,13 +48,15 @@ sample efficiency, seed-level stability, wall-clock cost and
 parameter-sensitivity diagnostics. Trust-region safeguards (adaptive KL,
 early stopping, trust-region rollback) decide reliability on
 contact-rich locomotion, holding seed spread within $\pm$0.12 where plain
-clipping scatters to $\pm$0.26; the maximum-entropy off-policy anchor SAC
+clipping scatters to $\pm$0.17; the maximum-entropy off-policy anchor SAC
 dominates both smooth navigation (0.83 success) and locomotion
 (0.90$\pm$0.001, also the sample-efficiency leader) at 5--8$\times$ the
 wall-clock cost, while deterministic TD3 is unreliable across seeds
-(0.43$\pm$0.20 on navigation, 0.00 on grasping); and
+(0.43$\pm$0.20 on navigation, 0.00 on grasping); \trpo{} itself attains a
+seed-perfect 1.00 on grasping under dense rewards; and
 group-relative methods transfer poorly: with episode-outcome baselines
-they reach only 0.32--0.38 success on navigation and near-zero on
+\grpo{} reaches only 0.557 on navigation---mid-pack, below every
+safeguarded PPO variant---\dapo{} 0.324, and both are near-zero on
 locomotion and manipulation under dense rewards, because outcome-level
 credit cannot guide multi-stage physical control. Algorithm rankings are
 reward-paradigm-dependent---potential-based shaping rescues sparse-reward
@@ -264,10 +266,11 @@ $(0.99,0.95)$, value clipping on, 4 inner epochs, minibatch 2048.
 $\epsilon_{high}{=}0.28$ vs $\epsilon_{low}{=}0.2$; SAC uses its standard
 hyper-parameters with a $600$k replay buffer.
 
-\textbf{Grid.} Axis A (algorithms): 11 algorithms $\times$ 3 tasks
-$\times$ 3 seeds under the dense reward. Axis B (rewards): 4 paradigms
-$\times$ 3 tasks $\times$ 3 seeds for three representative algorithms
-(\ppo{}-Clip, \trpo{}, \grpo{}). 198 runs total; every run re-evaluated
+\textbf{Grid.} Axis A (algorithms): twelve algorithms $\times$ 3 tasks
+$\times$ 3 seeds under the dense reward (108 runs). Axis B (rewards): the
+remaining three paradigms $\times$ 3 tasks $\times$ 3 seeds for three
+representative algorithms (\ppo{}-Clip, \trpo{}, \grpo{}), sharing Axis
+A's dense runs (81 runs). 189 runs total; every run re-evaluated
 every 20k steps with the deterministic policy on 64 held-out episodes at
 full task difficulty.
 
@@ -289,13 +292,16 @@ middle: E2 displacement; right: E3 lift rate.}
 \end{figure*}
 On E1 (Fig.~\ref{fig:curves} left) the on-policy family separates into a
 fast tier (PPO-Clip/RB/KL, ESPO, PPG reach 0.5--0.65 success within 100k
-steps) and a slow tier (TRPO, A2C); the off-policy anchors climb later
+steps) and a slow tier led by A2C, with \trpo{} climbing more slowly but
+finishing mid-pack (0.669); the off-policy anchors climb later
 but higher---SAC to 0.83---paying a warm-up period of replay accumulation,
 while TD3's mean hides seed scatter (0.43$\pm$0.20). On E2 (middle) only the PPO variants with trust-region
 safeguards (adaptive KL, early stopping, trust-region rollback) converge
 reliably; plain PPO-Clip solves the task on some seeds and collapses on
-others. On E3 (right) most PPO variants reach near-ceiling lift rates,
-with seed-level bimodality for PPO-Clip and TRPO (see below).
+others. On E3 (right) nearly the whole on-policy family reaches
+near-ceiling lift rates (\trpo{} 1.00, \ppo{} family $\ge$0.99); the
+remaining seed spread sits in SAC/TR-PPO-RB ($\pm$0.16--0.23), and the
+hover local optimum emerges only under sparse rewards (companion paper).
 
 \subsection{Final performance and rankings}
 \begin{figure*}[t]
@@ -305,45 +311,49 @@ with seed-level bimodality for PPO-Clip and TRPO (see below).
 3 seeds).}
 \label{fig:bars}
 \end{figure*}
-Tables~
-ef{tab:algo-e1}--
-ef{tab:algo-e3} (generated directly from the
+Tables~ef{tab:algo-e1}--ef{tab:algo-e3} (generated directly from the
 run logs) give the full statistics.
-egin{table}[t]\centering\small
+\begin{table}[t]\centering\small
 \caption{E1 (nav) final metrics (dense reward).}\label{tab:algo-e1}
 \input{../../results/figs/tables_algo_nav}
 \end{table}
-egin{table}[t]\centering\small
+\begin{table}[t]\centering\small
 \caption{E2 final metrics (dense reward).}\label{tab:algo-e2}
 \input{../../results/figs/tables_algo_hopper}
 \end{table}
-egin{table}[t]\centering\small
+\begin{table}[t]\centering\small
 \caption{E3 final metrics (dense reward).}\label{tab:algo-e3}
 \input{../../results/figs/tables_algo_grasp}
 \end{table}
 Final dense-reward rankings (mean$\pm$std over 3 seeds):
 \begin{itemize}
-\item \textbf{E1:} SAC 0.830$\pm$0.027 $>$ PPG 0.673$\pm$0.037
-$>$ PPO-KL 0.658 $>$ PPO-RB 0.655 $>$ ESPO 0.648 $>$ TR-PPO-RB 0.625 $>$
-TRPO 0.563$\pm$0.144 $>$ A2C 0.547 $>$ PPO-Clip 0.540$\pm$0.150 $>$
-TD3 0.434$\pm$0.202 $>$ GRPO-C 0.382 $>$ DAPO-C 0.324.
-\item \textbf{E2:} SAC 0.899$\pm$0.001 (AUC 0.889, dominant) $>$
+\item \textbf{E1:} SAC 0.830$\pm$0.027 $>$ PPG 0.673$\pm$0.037 $>$
+TRPO 0.669$\pm$0.023 $>$ PPO-KL 0.658$\pm$0.035 $>$ PPO-RB 0.655$\pm$0.013
+$>$ PPO-Clip 0.652$\pm$0.021 $>$ ESPO 0.648$\pm$0.043 $>$ TR-PPO-RB
+0.625$\pm$0.016 $>$ GRPO-C 0.557$\pm$0.070 $>$ A2C 0.547$\pm$0.020 $>$
+TD3 0.434$\pm$0.202 $>$ DAPO-C 0.324$\pm$0.032.
+\item \textbf{E2:} SAC 0.899$\pm$0.001 (AUC 0.898, dominant) $>$
 PPO-KL 0.785$\pm$0.121 $>$ ESPO 0.755$\pm$0.035 $>$
-TR-PPO-RB 0.754$\pm$0.073 $>$ PPO-RB 0.669 $>$ TRPO 0.485$\pm$0.240 $>$
-PPO-Clip 0.426$\pm$0.257 $>$ TD3 0.167 $\gg$ GRPO-C 0.060, A2C 0.027,
-PPG 0.020, DAPO-C 0.015.
-\item \textbf{E3:} PPG 0.998, PPO-RB 0.995, PPO-KL 0.992 $>$ TRPO
-0.745$\pm$0.430, PPO-Clip 0.735$\pm$0.420 $>$ TR-PPO-RB 0.694 $>$ SAC
-0.629$\pm$0.229 $>$ ESPO 0.568 $\gg$ A2C 0.059, TD3/GRPO-C/DAPO-C 0.000.
+TR-PPO-RB 0.754$\pm$0.073 $>$ TRPO 0.681$\pm$0.086 $>$ PPO-RB
+0.669$\pm$0.136 $>$ PPO-Clip 0.620$\pm$0.165 $>$ TD3 0.167 $\gg$ A2C
+0.027, PPG 0.020, GRPO-C 0.017, DAPO-C 0.015.
+\item \textbf{E3:} TRPO 1.000$\pm$0.000 $>$ PPG 0.998$\pm$0.001,
+PPO-Clip 0.996$\pm$0.003, PPO-RB 0.995, PPO-KL 0.992 $>$ TR-PPO-RB
+0.694$\pm$0.162 $>$ SAC 0.629$\pm$0.229 $>$ ESPO 0.568$\pm$0.138 $\gg$
+A2C 0.059, GRPO-C/DAPO-C/TD3 0.000.
 \end{itemize}
 Two stability phenomena stand out. First, E2 is the discriminator:
 the three variance-controlled variants (KL penalty, early stopping,
-trust-region rollback) hold seed spread below $\pm$0.12 while plain
-clipping scatters to $\pm$0.26 and TRPO to $\pm$0.24---on contact-rich
-locomotion the safeguard, not the surrogate shape, decides reliability.
-Second, E3 exhibits bimodal seeds for PPO-Clip/TRPO ($\pm$0.42$-$0.43):
-manipulation admits a local optimum (hover near the object) that some
-seeds never escape, while rollback/phased variants avoid it.
+trust-region rollback) hold seed spread at or below $\pm$0.12 while plain
+clipping scatters to $\pm$0.17 (and PPO-RB to $\pm$0.14)---on contact-rich
+locomotion the safeguard, not the surrogate shape, decides reliability;
+\trpo{}'s hard constraint is equally disciplined ($\pm$0.086) but pays
+CG and line-search cost per update. Second, under dense rewards E3 is
+nearly solved by the whole on-policy family ($\ge$0.99); the
+manipulation-specific failure mode (hovering near the object without
+grasping) appears only under \emph{sparse} rewards (companion paper:
+PPO-Clip 0.009, TRPO 0.000), where milestone/PBS structure becomes the
+deciding factor.
 
 \subsection{Sample efficiency, stability and cost}
 \begin{figure}[t]
@@ -357,16 +367,20 @@ Wall-clock prices differ by two orders of magnitude at equal sample
 budgets: on E1, PPG finishes in 39\,s vs SAC's 2847\,s (73$\times$),
 because the vectorized simulator makes collection nearly free while
 off-policy gradient steps dominate. AUC
-(sample efficiency) crowns different algorithms per task: PPO-RB on E1
-(0.655), SAC on E2 (0.889, the largest margin in the study), PPG on E3
-(0.649)---there is no universal sample-efficiency
-winner, but the trust-region safeguards consistently lift AUC over plain
-clipping on the two harder tasks.
+(sample efficiency) crowns different algorithms per task: PPO-Clip on E1
+(0.670, with PPO-RB 0.661), SAC on E2 (0.898, the largest margin in the
+study), TRPO on E3 (0.699)---there is no universal sample-efficiency
+winner, but on the contact-rich E2 the trust-region safeguards
+consistently lift AUC over plain clipping (ESPO 0.618, TR-PPO-RB 0.551
+vs 0.332).
 
 \subsection{Group-relative methods on control (Q2)}
-GRPO-C and DAPO-C invert their LLM-domain reputation: competitive on
-nothing here, weak on E1 (0.32--0.38), and near-zero on E2/E3 under dense
-rewards. The mechanism is structural: broadcasting one group-normalized
+GRPO-C and DAPO-C invert their LLM-domain reputation: \grpo{} manages
+only mid-pack on E1 (0.557$\pm$0.070, above A2C/TD3 but 0.07--0.12 below
+every safeguarded PPO variant) with the highest seed CV of the
+on-policy field (0.13), \dapo{} trails at 0.324, and both are near-zero
+on E2/E3 (0.015--0.017) under dense rewards. The mechanism is
+structural: broadcasting one group-normalized
 \emph{episode} return to every timestep discards within-episode credit;
 dense locomotion and 4-DoF manipulation live exactly where that credit
 matters. DAPO's dynamic sampling fires constantly on E2/E3 (resampled
@@ -406,8 +420,11 @@ restoring gradient outside the band; ESPO substitutes an early-stopping
 rule for the clip entirely; PPG isolates value learning so the shared
 trunk is not dragged by conflicting objectives.
 Empirically, E2 (the contact-rich task) orders the family exactly by
-safeguard strength: PPO-KL $>$ ESPO $>$ TR-PPO-RB $>$ PPO-RB $>$ PPO-Clip,
-and the same three safeguards conquer E3's local optimum. Where contact is
+safeguard strength: PPO-KL $>$ ESPO $>$ TR-PPO-RB $>$ PPO-RB $>$ PPO-Clip;
+on E3 the entire family (plus \trpo{} and PPG) solves the dense task at
+$\ge$0.99, so the manipulation local optimum is a sparse-reward
+phenomenon that milestone structure, not the surrogate shape, decides
+(companion paper). Where contact is
 absent (E1), the differences compress: every safeguarded variant lands in
 a two-point band (0.62--0.68). The choice among safeguards is therefore
 about robustness, not peak performance---consistent with the
@@ -424,9 +441,10 @@ exploration of \emph{actions} but cannot create within-episode credit;
 dynamic sampling correctly detects degenerate groups yet spends the budget
 resampling them. The honest reading is not ``GRPO fails'' but ``GRPO's
 regime is outcome-shaped tasks''---E1, the most outcome-shaped of the
-three, is also where it performs best; and under \emph{sparse} rewards
-(companion paper) group methods are the only family that moves at all on
-E2 beyond random. Group methods shine where episodes are short and
+three, is also where it performs best (0.557); and under \emph{sparse}
+rewards (companion paper) \grpo{} even improves on E2 (0.109 vs 0.017
+dense) because clean terminal outcomes keep groups comparable, though
+critic methods still reach 0.41--0.61 there. Group methods shine where episodes are short and
 outcomes are informative; robots usually offer neither.
 GRPO/DAPO were born on verifiable outcome rewards with token actions.
 Three translation decisions matter on control: the group unit (we use
@@ -444,24 +462,24 @@ runs).}
 \label{tab:hparams}
 \begin{tabular}{ll}
 \toprule
-shared & value \
+shared & value \\
 \midrule
-networks & $2{\times}128$ tanh MLPs \
-optimizer & Adam $3{\times}10^{-4}$ \
-collection & 64 envs $\times$ 256 steps \
-GAE & $\gamma=0.99$, $\lambda=0.95$ \
-PPO epochs / minibatch & 4 / 2048 \
-grad-norm clip & 0.5 \
-value clip & on \
+networks & $2{\times}128$ tanh MLPs \\
+optimizer & Adam $3{\times}10^{-4}$ \\
+collection & 64 envs $\times$ 256 steps \\
+GAE & $\gamma=0.99$, $\lambda=0.95$ \\
+PPO epochs / minibatch & 4 / 2048 \\
+grad-norm clip & 0.5 \\
+value clip & on \\
 \midrule
-PPO clip $\epsilon$ & 0.2 (high=0.28 for DAPO) \
-PPO-RB $\alpha$ & 0.2; TR trigger $\tau{=}0.12$ \
-ESPO & $\eta{=}0.25$, max 12 epochs \
-PPG & $N_\pi{=}8$, 3 aux epochs, $\beta_c{=}1$ \
-TRPO & $\delta{=}0.01$, damping 0.1, CG 10 \
-GRPO/DAPO-C & $N{=}16\times G{=}8$, lr $10^{-4}$ \
-SAC & $\tau{=}0.005$, batch 1024, UTD 16 \
-TD3 & $\tau{=}0.005$, noise 0.2/0.15, delay 2 \
+PPO clip $\epsilon$ & 0.2 (high=0.28 for DAPO) \\
+PPO-RB $\alpha$ & 0.2; TR trigger $\tau{=}0.12$ \\
+ESPO & $\eta{=}0.25$, max 12 epochs \\
+PPG & $N_\pi{=}8$, 3 aux epochs, $\beta_c{=}1$ \\
+TRPO & $\delta{=}0.01$, damping 0.1, CG 10 \\
+GRPO/DAPO-C & $N{=}16\times G{=}8$, lr $10^{-4}$ \\
+SAC & $\tau{=}0.005$, batch 1024, UTD 16 \\
+TD3 & $\tau{=}0.005$, noise 0.2/0.15, delay 2 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -481,7 +499,7 @@ on three self-contained robot tasks under four reward paradigms. Three
 take-homes: (i) on contact-rich robot control, the safeguard---adaptive
 KL, early stopping, or trust-region rollback---not the surrogate family
 name, decides seed-level reliability; (ii) maximum-entropy off-policy learning (SAC) buys peak performance on
-navigation and locomotion at 5--8$	imes$ wall-clock cost, while
+navigation and locomotion at 5--8$\times$ wall-clock cost, while
 deterministic off-policy (TD3) collapses to seed lotteries---entropy, not
 off-policyness, is what transfers; (iii) group-relative optimization transfers to robots
 only where tasks are outcome-shaped---its credit granularity, tuned for

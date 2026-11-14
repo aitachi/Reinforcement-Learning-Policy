@@ -1,603 +1,187 @@
-# Reinforcement-Learning-Policy(强化学习策略优化全方位对比项目)
-
-**横跨 LLM 后训练与机器人控制两个领域的开源算法对比套件:11 种控制算法 × 3 个机器人任务 × 4 种奖励范式 × 198 组受控实验,外加原有的 LLM 四算法(PPO/DPO/GRPO/DAPO)对比研究。**
-
-- 机器人控制套件:见 `control/`(纯 PyTorch 向量化环境,无需 MuJoCo)
-- 两篇配套论文:`papers/paper1_algo_comparison`(算法对比)、`papers/paper2_reward_design`(奖励范式设计)
-- 快速开始:`python3 control/train.py --env nav --algo ppo --reward dense --seed 0`
-- 全网格:`python3 control/sweep.py --axis all --workers 2`;图表:`python3 control/analysis.py`
-
-以下为原 LLM 对比研究完整文档。
-
----
+# Reinforcement-Learning-Policy(强化学习策略优化对比项目)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
 
-**作者：** Aitachi
-**联系方式：** 44158892@qq.com
-**许可证：** MIT
+**双轨道策略优化算法开源对比:当前 v2 聚焦机器人控制,完整保留的 v1 为大语言模型后训练研究。**
 
-**Language / 语言 / 言語:** [English](README.md) | [中文](README_CN.md) | [日本語](README_JA.md)
+**Language / 语言:** [English](README.md) | [中文](README_CN.md)
 
 ---
 
-## 摘要
+## 双轨道导航 —— 请先读这里
 
-本文对四种用于大语言模型（LLM）对齐与训练的代表性强化学习算法进行了全面的对比研究：近端策略优化（PPO, Schulman et al., 2017）、直接偏好优化（DPO, Rafailov et al., 2023）、组相对策略优化（GRPO, DeepSeek-AI, 2025）和动态优势策略优化（DAPO, Yu et al., 2025）。我们基于 Qwen2-1.5B 架构提供了完整的算法实现，并从数学公式、架构需求、计算效率和下游任务性能等多个维度进行了系统对比。在 AIME 2024 基准测试上的实验表明，DAPO 达到了 50% 的准确率，相比朴素 GRPO（30%）提升了 67%，并超越了 DeepSeek-R1-Zero（47%）。通过消融实验，我们发现动态采样是最大单项提升来源（+8 分），其次是过长过滤（+6 分）。我们进一步讨论了这些算法与更广泛的 RLHF 文献之间的关系，包括 REINFORCE++、KTO 和过程奖励模型。
+本仓库包含**两条清晰分离的研究轨道**,共享同一个研究问题——*在受控、预算对齐的条件下,信赖域近端家族与组相对家族各自表现如何?结论又如何随奖励信号改变?*——但分属不同领域、不同目录、各自独立成文。
 
-**论文下载：**
-- [英文版 IEEE 论文 (PDF, 10页)](docs/RL_LLM_Survey_IEEE_EN.pdf)
-- [中文版 IEEE 论文 (PDF, 8页)](docs/RL_LLM_Survey_IEEE_CN.pdf)
+| 轨道 | 状态 | 领域 | 规模 | 入口 |
+|---|---|---|---|---|
+| **v2 — 机器人控制套件** | **当前版本,持续开发** | 机器人控制:避障导航 / 单足运控 / 抓取-提起 | **12 算法 × 3 任务 × 4 奖励范式 · 189 组实验 · 2 篇论文** | [`control/`](control/) · [`papers/`](papers/) · [`results/`](results/) |
+| **v1 — LLM 后训练研究** | 原始版本,完整冻结保留 | 基于 Qwen2-1.5B 的大模型对齐 | PPO / DPO / GRPO / DAPO 完整实现 + IEEE 综述(英/中/日) | [`v1-llm-post-training/`](v1-llm-post-training/README_CN.md) |
 
----
-
-## 目录
-
-- [一、引言](#一引言)
-- [二、背景与符号](#二背景与符号)
-- [三、算法详解](#三算法详解)
-- [四、对比分析](#四对比分析)
-- [五、实验评估](#五实验评估)
-- [六、讨论](#六讨论)
-- [七、结论](#七结论)
-- [八、快速入门](#八快速入门)
-- [九、参考文献](#九参考文献)
-- [附录A：训练配置](#附录a训练配置)
-- [附录B：项目结构](#附录b项目结构)
+- 新工作都在 **[第一部分(v2)](#第一部分机器人控制套件v2当前版本)** —— 机器人对比实验。
+- **[第二部分(v1)](#第二部分llm-后训练研究v1原版保留)** 是原 LLM 研究的摘要;其 600 行完整文档现位于 [`v1-llm-post-training/README_CN.md`](v1-llm-post-training/README_CN.md)。
 
 ---
 
-## 一、引言
+# 第一部分:机器人控制套件(v2,当前版本)
 
-### 1.1 研究动机
+纯 PyTorch、GPU 批量化的基准测试:**12 种**策略优化算法 × 3 个自包含机器人任务 × 4 种可切换奖励范式,统一公平性协议(相同采样预算、网络规模、优化器、种子),奖励逐项审计。
 
-基于人类反馈的强化学习（RLHF）已成为大语言模型对齐和提升推理能力的关键范式。算法领域发展迅速：从支撑 InstructGPT 和 ChatGPT 的基础 PPO 算法（2017），到消除显式奖励建模的简化 DPO 方法（2023），再到近期在大幅降低计算需求的同时达到最先进推理性能的 GRPO 和 DAPO 算法（2025）。
-
-然而，算法的激增使研究人员和从业者难以理解它们之间的关系、权衡和适用场景。每种算法在奖励计算、优势估计和策略更新约束方面都引入了不同的创新。
-
-### 1.2 贡献
-
-本工作的贡献如下：
-
-1. 四种算法的**完整实现**，附带详细的内联文档和数学注释
-2. 跨架构需求、损失函数特性、计算成本和基准性能的**系统对比**
-3. 分离每项 DAPO 创新贡献的**消融分析**
-4. 与更广泛文献的**讨论**，包括 REINFORCE++、KTO、IPO 和过程奖励模型
-5. 针对不同部署场景的**实用算法选择指南**
-
-### 1.3 论文组织
-
-第二节建立背景和统一符号。第三节提供详细的算法描述。第四节进行多维度对比分析。第五节报告实验结果。第六节讨论开放挑战和未来方向。第七节总结全文。
-
----
-
-## 二、背景与符号
-
-### 2.1 LLM 对齐中的强化学习建模
-
-在 LLM 对齐的语境下，训练过程被建模为**上下文赌博机（Contextual Bandit）** 问题。模型在自回归地生成完整响应后才接收奖励信号。形式化定义：
-
-| 元素 | 定义 |
-|:---|:---|
-| 状态/上下文 $x \sim \mathcal{D}$ | 从训练分布采样的输入提示词 |
-| 动作/响应 $y = (y_1, \ldots, y_T)$ | 模型生成的词元序列 |
-| 策略 $\pi_\theta(y \mid x)$ | 以 $\theta$ 为参数的自回归语言模型 |
-| 奖励 $r(x, y) \in \mathbb{R}$ | 评估响应质量的标量信号 |
-
-优化目标：
-
-$$\theta^{\ast} = \underset{\theta}{\mathrm{argmax}}\; \mathbb{E}_{x \sim \mathcal{D},\; y \sim \pi_\theta(\cdot \mid x)}\left[r(x, y)\right]$$
-
-### 2.2 RLHF 三阶段流程
-
-**阶段 1 -- 监督微调（SFT）：**
-
-$$\mathcal{L}_{\mathrm{SFT}}(\theta) = -\mathbb{E}_{(x,\, y^{\ast}) \sim \mathcal{D}_{\mathrm{demo}}}\left[\log \pi_\theta(y^{\ast} \mid x)\right]$$
-
-**阶段 2 -- 奖励模型训练（Bradley-Terry）：**
-
-$$\mathcal{L}_{\mathrm{RM}}(\phi) = -\mathbb{E}\left[\log \sigma\left(r_\phi(x, y_w) - r_\phi(x, y_l)\right)\right]$$
-
-**阶段 3 -- RL 策略优化：** 选择 RL 算法（PPO / GRPO / DAPO）优化策略。DPO 直接在偏好对上优化，绕过阶段 2 和 3。
-
-### 2.3 统一符号
-
-| 符号 | 定义 |
-|:---|:---|
-| $\pi_\theta$ | 当前策略网络（正在训练的 LLM） |
-| $\pi_{\mathrm{ref}}$ | 参考（冻结）策略，通常为 SFT 模型 |
-| $\pi_{\theta_{\mathrm{old}}}$ | 上一步更新的策略参数 |
-| $r(x,y)$ | 奖励函数（学习型或规则型） |
-| $\hat{A}$ | 优势函数估计值 |
-| $r_t(\theta)$ | 重要性采样比率 $\pi_\theta / \pi_{\theta_{\mathrm{old}}}$ |
-| $\varepsilon$ | PPO/GRPO 对称裁剪参数 |
-| $\varepsilon_{\mathrm{low}}, \varepsilon_{\mathrm{high}}$ | DAPO 非对称裁剪边界 |
-| $\beta$ | KL 惩罚系数或 DPO 温度 |
-| $G$ | GRPO/DAPO 的组采样大小 |
-| $V_\phi$ | PPO 的价值网络（Critic） |
-| $y_w, y_l$ | 偏好对中的优选和拒绝响应 |
-
----
-
-## 三、算法详解
-
-### 3.1 PPO -- 近端策略优化
-
-PPO 由 Schulman 等人于 2017 年提出，至今仍是 LLM 对齐中应用最广泛的 RL 算法，是 InstructGPT 和 ChatGPT 的核心算法。
-
-#### 裁剪代理目标
-
-设 $r_t(\theta) = \pi_\theta(a_t \mid s_t) / \pi_{\theta_{\mathrm{old}}}(a_t \mid s_t)$ 为概率比率：
-
-$$L^{\mathrm{CLIP}}(\theta) = \mathbb{E}_t\left[\min\left(r_t(\theta)\hat{A}_t,\ \mathrm{clip}(r_t(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\hat{A}_t\right)\right]$$
-
-当 $\hat{A}_t > 0$ 时，目标鼓励增大 $r_t$ 但在 $1+\varepsilon$ 处裁剪；当 $\hat{A}_t < 0$ 时，抑制该动作但在 $1-\varepsilon$ 处裁剪。这创建了目标函数中的"平坦"区域，防止灾难性大幅更新。
-
-#### 组合 PPO 目标
-
-$$L^{\mathrm{PPO}}(\theta, \phi) = \mathbb{E}_t\left[L^{\mathrm{CLIP}}(\theta) - c_1 L^{VF}(\phi) + c_2 S[\pi_\theta]\right]$$
-
-其中 $c_1 = 0.5$（价值损失系数），$c_2 = 0.01$（熵奖励系数）。
-
-#### GAE 优势估计
-
-$$\hat{A}_t^{\mathrm{GAE}} = \sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l}^{V}, \quad \delta_t^{V} = r_t + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$$
-
-#### 架构需求
-
-PPO 需要四个模型组件同时加载到 GPU 内存：
-
-1. **Actor**（策略 $\pi_\theta$）：正在训练的 LLM
-2. **Critic**（价值 $V_\phi$）：与 Actor 规模相当的独立网络
-3. **参考模型**（$\pi_{\mathrm{ref}}$）：冻结副本，用于 KL 计算
-4. **奖励模型**（$r_\psi$）：训练好的奖励函数
-
-> 内存需求约为单 LLM 前向传播的 $4\times$。70 亿参数模型通常需要 4-8 块 A100 GPU。
-
-![PPO 流程图](docs/figures/ppo_flowchart.svg)
-
-**优势：** 收敛性质已被充分研究；对超参数选择鲁棒；兼容任意奖励函数。
-
-**局限：** 价值网络带来高内存开销；奖励信号稀疏或含噪时训练不稳定。
-
----
-
-### 3.2 DPO -- 直接偏好优化
-
-DPO 由 Rafailov 等人于 2023 年提出，通过推导闭式损失函数消除了显式奖励建模，代表了 LLM 对齐中的范式转变。
-
-#### 从 KL 约束的 RLHF 目标推导
-
-闭式最优策略：
-
-$$\pi^{\ast}(y \mid x) = \frac{1}{Z(x)}\pi_{\mathrm{ref}}(y \mid x)\exp\left(\frac{1}{\beta}r(x,y)\right)$$
-
-#### DPO 损失函数
-
-$$L^{\mathrm{DPO}}(\theta) = -\mathbb{E}_{(x,y_w,y_l)}\left[\log\sigma\left(\beta \cdot h(y_w,y_l,x)\right)\right]$$
-
-$$h(y_w,y_l,x) = \log\frac{\pi_\theta(y_w \mid x)}{\pi_{\mathrm{ref}}(y_w \mid x)} - \log\frac{\pi_\theta(y_l \mid x)}{\pi_{\mathrm{ref}}(y_l \mid x)}$$
-
-其中 $y_w$ 和 $y_l$ 分别为偏好对中的优选和拒绝响应。$\sigma$ 为 Sigmoid 函数，$\beta$ 控制区分偏好的锐度。
-
-隐式奖励：$\hat{r}(x,y) = \beta \cdot \left(\log \pi_\theta(y \mid x) - \log \pi_{\mathrm{ref}}(y \mid x)\right)$
-
-![DPO 流程图](docs/figures/dpo_flowchart.svg)
-
-**优势：** 实现最简单；无需奖励模型；训练稳定；兼容离线偏好数据。
-
-**局限：** 需要预收集的偏好对；无法在线探索；不适用于客观奖励信号任务。
-
----
-
-### 3.3 GRPO -- 组相对策略优化
-
-GRPO 由 DeepSeek 团队于 2025 年提出，通过使用组级奖励统计作为优势基线消除了价值网络，GPU 内存减少约 50%。
-
-#### 组优势估计
-
-对每个提示词 $q$，生成 $G$ 个响应，奖励为 $\{R_1, \ldots, R_G\}$：
-
-$$\hat{A}_i = \frac{R_i - \mu_G}{\sigma_G + \epsilon}, \quad \mu_G = \frac{1}{G}\sum_{j=1}^{G}R_j$$
-
-$R_i > \mu_G$ 的响应被强化，$R_i < \mu_G$ 的被抑制。
-
-#### GRPO 目标函数
-
-$$J_{\mathrm{GRPO}}(\theta) = \mathbb{E}_{q \sim \mathcal{D}}\left[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{\lvert o_i\rvert}\sum_{t=1}^{\lvert o_i\rvert}\min\left(r_{i,t}\hat{A}_i,\ \mathrm{clip}(r_{i,t},\, 1{-}\varepsilon,\, 1{+}\varepsilon)\hat{A}_i\right) - \beta D_{\mathrm{KL}}\right]$$
-
-KL 散度使用无偏估计器：
-
-$$D_{\mathrm{KL}} = \frac{\pi_{\mathrm{ref}}}{\pi_\theta} - \log\frac{\pi_{\mathrm{ref}}}{\pi_\theta} - 1$$
-
-![GRPO 流程图](docs/figures/grpo_flowchart.svg)
-
-**优势：** 消除价值网络（内存减少 50%）；天然适配可验证任务；工程实现简单。
-
-**局限：** 对称裁剪可能导致熵坍塌；样本级归一化偏向短响应；组采样增加推理开销。
-
----
-
-### 3.4 DAPO -- 动态优势策略优化
-
-DAPO 由字节跳动于 2025 年提出，通过三项创新扩展 GRPO，在 AIME 2024 上达到 **50% 准确率**（朴素 GRPO 为 30%，提升 67%）。
-
-#### 创新 1：非对称 Clip-Higher
-
-GRPO 的对称裁剪 $[1-\varepsilon,\, 1+\varepsilon]$ 会逐步导致策略熵坍塌。DAPO 使用更宽的上界：
-
-$$\mathrm{clip}(r_t,\ 1-\varepsilon_{\mathrm{low}},\ 1+\varepsilon_{\mathrm{high}}), \quad \varepsilon_{\mathrm{low}}=0.2,\ \varepsilon_{\mathrm{high}}=0.28$$
-
-上界扩大 40%（0.28 vs 0.20），使正优势词元能更积极地提升概率，维持探索能力。
-
-![Clip-Higher 机制](docs/figures/ieee_fig4_clip_higher.svg)
-
-#### 创新 2：动态采样
-
-当某提示词的所有 $G$ 个响应全部正确或全部错误时，优势为零，梯度无效。DAPO 过滤这些批次：
-
-**过滤条件：** 设 $n_c = \sum_{i=1}^{G} \mathbf{1}[\mathrm{correct}(o_i)]$，则：
-
-$$0 < n_c < G$$
-
-保证每个训练批次都有非零优势和有效梯度更新。
-
-#### 创新 3：Token 级损失归一化
-
-GRPO 的样本级归一化 $\frac{1}{G}\sum_i$ 偏向短响应。DAPO 按总词元数归一化：
-
-$$J_{\mathrm{DAPO}}(\theta) = \mathbb{E}\left[\frac{1}{\displaystyle\sum_{i=1}^{G}\lvert o_i\rvert}\sum_{i=1}^{G}\sum_{t=1}^{\lvert o_i\rvert} \ell_{i,t}\right]$$
-
-$$\ell_{i,t} = \min\left(r_{i,t}\hat{A}_i,\ \mathrm{clip}(r_{i,t},\, 1-\varepsilon_{\mathrm{low}},\, 1+\varepsilon_{\mathrm{high}})\hat{A}_i\right)$$
-
-每个词元对梯度贡献相等，消除长度偏差。
-
-![Token 级 vs 样本级](docs/figures/ieee_fig5_token_sample.svg)
-
-#### 过长奖励整形
-
-$$R_{\mathrm{length}}(y) = \begin{cases} 0 & \lvert y\rvert \leq L_{\max} - L_{\mathrm{cache}} \\ \frac{L_{\max} - L_{\mathrm{cache}} - \lvert y\rvert}{L_{\mathrm{cache}}} & L_{\max} - L_{\mathrm{cache}} < \lvert y\rvert \leq L_{\max} \\ -1 & \lvert y\rvert > L_{\max} \end{cases}$$
-
-![DAPO 流程图](docs/figures/dapo_flowchart.svg)
-
----
-
-## 四、对比分析
-
-### 4.1 架构对比
-
-| 维度 | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| 提出年份 | 2017 | 2023 | 2025 | 2025 |
-| 价值网络 | 需要 | 不需要 | 不需要 | 不需要 |
-| 奖励模型 | 显式 RM | 隐式 | 规则型 | 规则型 |
-| 参考模型 | 可选 | 需要 | 需要 | 需要 |
-| 裁剪策略 | 对称 | 无 | 对称 | **非对称** |
-| 裁剪范围 | [0.8, 1.2] | N/A | [0.8, 1.2] | **[0.8, 1.28]** |
-| 损失粒度 | Token 级 | 序列级 | 样本级 | **Token 级** |
-| 组采样 | 否 | 否 | 固定 G=16 | 动态 |
-| KL 约束 | 无 | 隐式 | 显式惩罚 | **移除** |
-| 训练数据 | 在线采样 | 离线偏好 | 在线采样 | 在线采样 |
-| 相对 GPU 内存 | ~2.0x | ~1.0x | ~1.0x | ~1.2x |
-
-### 4.2 理论特性对比
-
-| 特性 | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| 学习模式 | 在线 | 离线 | 在线 | 在线 |
-| 策略类型 | On-policy | Off-policy | On-policy | On-policy |
-| 收敛保证 | KL 约束下单调改进 | Bradley-Terry 一致性 | 继承 PPO 性质 | 继承 GRPO 性质 |
-| 梯度方差 | 中（GAE 降低） | 低（闭式解） | 中（组统计） | 低（Token 级） |
-| 奖励黑客风险 | 高（学习型 RM） | 低（固定偏好） | 低（规则型） | 低（规则型） |
-
-### 4.3 GRPO 与 DAPO 关键差异
-
-| 维度 | GRPO | DAPO |
-|:---|:---|:---|
-| 裁剪范围 | $[1-\varepsilon,\, 1+\varepsilon]$ 对称 | $[1-\varepsilon_l,\, 1+\varepsilon_h]$ 非对称 |
-| 损失归一化 | $\frac{1}{G}\sum_i$（样本级） | $\frac{1}{\sum_i \lvert o_i\rvert}\sum_i\sum_t$（Token 级） |
-| 批次过滤 | 无（固定 G=16） | 动态（$0 < n_c < G$） |
-| KL 惩罚 | $\beta D_{\mathrm{KL}}$（显式） | 移除（Clip-Higher 已足够） |
-
-### 4.4 算法演进轨迹
-
-```
-PPO (2017)  -->  DPO (2023)  : 消除奖励模型，闭式损失
-    |
-    +-->  GRPO (2025) : 消除价值网络，内存减50%
-              |
-              +-->  DAPO (2025) : Clip-Higher + 动态采样 + Token级损失
-                                   AIME 准确率: 30% --> 50% (+67%)
-```
-
-### 4.5 与现有文献的讨论
-
-**REINFORCE++ 与 RLOO。** Ahmadian 等人 (2024) 和 oubi 等人 (2024) 提出了方差缩减的策略梯度方法，作为 PPO 裁剪代理的替代方案。GRPO 的组优势归一化可视为一种结构化方差缩减策略：通过将来自同一提示词的 $G$ 个样本的均值作为基线，它在不需学习价值函数的情况下实现了比 REINFORCE 更低的方差。RLOO（留一法）通过使用剩余 $G-1$ 个样本的均值作为每个样本的基线进一步降低方差，这在数学上等价于 GRPO 的留一优势估计。
-
-**KTO（Kahneman-Tversky 优化）。** Ethayarajh 等人 (2024) 提出了一种基于前景理论的非成对偏好优化方法。与需要成对偏好数据 $(y_w, y_l)$ 的 DPO 不同，KTO 在具有二元反馈（期望/不期望）的单个样本上操作。这降低了数据收集成本，但牺牲了 DPO 利用的相对排名信号。在实践中，当偏好对不可用时 KPO 更为可取，而当存在高质量成对数据时 DPO 更优。
-
-**IPO（恒等偏好优化）。** Azar 等人 (2024) 表明 DPO 的 Bradley-Terry 假设可能过强，并提出具有不同损失函数的 IPO，直接优化 KL 正则化目标而无需 BT 假设。IPO 提供了更好的理论保证，但当 BT 假设近似成立时，DPO 在经验上可能更优。
-
-**在线与离线 RLHF。** 在线方法（PPO、GRPO、DAPO）在训练期间交互式地采样和评估响应，与离线方法（DPO）从固定偏好数据集学习之间存在根本区别。Gulcehre 等人 (2023) 表明在线方法通常达到更高的渐近性能但计算成本更高，而离线方法每次迭代更具样本效率但可能在较低性能处停滞。
-
-**DeepSeek-R1-Zero 与 DeepSeek-R1。** 虽然我们的基准测试报告 DeepSeek-R1-Zero 在 AIME 2024 上达到 47%，但完整的 DeepSeek-R1 模型引入了冷启动数据和多阶段训练（在高质量推理链上进行 GRPO 微调），达到更高性能。这突显了监督微调和基于 RL 的优化的互补价值。
-
-**奖励黑客与过度优化。** Gao 等人 (2023) 表明基于 PPO 的 RLHF 容易受到奖励黑客攻击，即策略学会利用学习型奖励模型的缺陷而非真正改进。GRPO 和 DAPO 通过在可验证任务（数学、编码）上使用规则型奖励部分缓解了这一问题，尽管这限制了它们在具有客观评估标准的领域的适用性。
-
-**过程奖励模型（PRM）与结果奖励模型（ORM）。** 本研究的四种算法均使用评估最终响应的结果级奖励。Lightman 等人 (2023) 和 Snell 等人 (2024) 表明，提供步骤级反馈的过程奖励模型可以显著提升推理性能。将 PRM 与 GRPO 或 DAPO 集成是一个有前景的研究方向，其中每个推理步骤接收独立的奖励信号而非单一的结果奖励。
-
-### 4.6 可视化对比
-
-**收敛曲线**
-![收敛曲线](docs/figures/ieee_fig1_convergence.svg)
-
-**多维雷达图**
-![雷达图](docs/figures/ieee_fig7_radar.svg)
-
-**3D 性能景观**
-![3D 曲面](docs/figures/ieee_fig8_3d_surface.png)
-
-**损失曲线**
-![损失曲线](docs/figures/comparison_loss_curves_2d.svg)
-
-**奖励曲线**
-![奖励曲线](docs/figures/comparison_reward_curves_2d.svg)
-
----
-
-## 五、实验评估
-
-### 5.1 小规模实验（Qwen2.5-0.5B）
-
-| 指标 | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| 训练时间 (s) | 412 | **198** | 245 | 280 |
-| 最终损失 | 0.1156 | 0.0945 | 0.0823 | **0.0651** |
-| 最终奖励 | 7.65 | 7.89 | 8.24 | **9.52** |
-| GPU 内存 (GB) | 9.8 | 6.8 | **6.2** | 7.0 |
-| 吞吐量 (样本/s) | 12.4 | **28.6** | 18.2 | 16.1 |
-
-### 5.2 AIME 2024 基准测试（Qwen2.5-32B, k=32）
-
-| 算法 | avg@32 | pass@32 | cons@32 |
-|:---|:---|:---|:---|
-| 朴素 GRPO | 30% | --- | --- |
-| DeepSeek-R1-Zero | 47% | 60% | 62% |
-| **DAPO** | **50%** | **75%** | **78%** |
-
-### 5.3 消融实验
-
-| 配置 | AIME 分数 | $\Delta$ |
-|:---|:---|:---|
-| 基线（朴素 GRPO） | 30 | --- |
-| + 过长过滤 | 36 | +6 |
-| + Clip-Higher ($\varepsilon_h = 0.28$) | 38 | +2 |
-| + 软过长惩罚 | 41 | +3 |
-| + Token 级损失 | 42 | +1 |
-| + 动态采样（完整 DAPO） | **50** | +8 |
-
-> **关键发现：** 动态采样贡献最大单项提升（+8 分），其次是过长过滤（+6 分）。
-
-![消融实验](docs/figures/ieee_fig9_ablation.svg)
-
----
-
-## 六、讨论
-
-### 6.1 算法选择指南
-
-| 场景 | 推荐算法 | 理由 |
-|:---|:---|:---|
-| 有偏好数据的主观对齐 | **DPO** | 实现最简单，训练稳定 |
-| 资源受限的高效推理 | **GRPO** | 内存效率最佳 |
-| 追求最大推理性能 | **DAPO** | AIME 最高，长链思维优势 |
-| 需要学习型奖励模型 | **PPO** | 理论保证，通用 RL |
-
-### 6.2 开放性挑战
-
-1. **千亿参数规模可扩展性：** 组方法每提示词需要 $G$ 次前向传播，超大模型代价高昂
-2. **开放式任务的奖励规范：** 数学推理受益于规则型奖励，创意写作仍具挑战
-3. **长度利用：** 模型可能学会生成不必要的长链思维推理
-4. **样本效率：** 组方法比单样本方法代价高 $G$ 倍
-5. **多目标优化：** 实际部署需同时平衡准确性、安全性、有用性
-
-### 6.3 有前景的研究方向
-
-1. **混合方法：** DPO 的离线偏好学习 + DAPO 的 Token 级在线优化
-2. **过程奖励模型（PRM）：** 步骤级奖励信号替代结果级奖励
-3. **自适应组采样：** 根据提示词难度动态调整 $G$
-4. **投机解码加速：** 降低 GRPO/DAPO 的组采样开销
-5. **元学习算法选择：** 自动为给定任务选择最优 RL 算法
-
----
-
-## 七、结论
-
-四种算法代表了 LLM 训练中的清晰演进轨迹：
-
-- **PPO** (2017) 建立了裁剪代理基础和双网络架构，支撑了第一代对齐 LLM
-- **DPO** (2023) 通过推导闭式 Bradley-Terry 损失函数，大幅简化了 RLHF 流程，消除了显式奖励建模
-- **GRPO** (2025) 通过组优势归一化消除价值网络，内存减少约 50%
-- **DAPO** (2025) 引入三项创新 -- 非对称 Clip-Higher、动态采样和 Token 级损失归一化 -- 使 AIME 2024 准确率提升 67%（30% -> 50%）
-
-趋势清晰可见：从通用 RL 算法（PPO）向利用语言模型训练独特结构的 LLM 专用方法（GRPO、DAPO）演进，特别是利用可验证奖励的可用性和生成过程的 Token 级粒度。
-
----
-
-## 八、快速入门
-
-> **前置条件：** 需要 GPU 环境 + 预下载 `Qwen/Qwen2.5-0.5B-Instruct` 模型，数据文件 `data/sample_reasoning_data.json` 已提供。
+## 快速开始
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
-
-# PPO 训练（需要 Policy + Value 双网络）
-python algorithms/ppo_trainer.py
-
-# DPO 训练（需要偏好对数据）
-python algorithms/dpo_trainer.py
-
-# GRPO 训练（组采样，无需 Value Network）
-python algorithms/grpo_trainer.py
-
-# DAPO 训练（动态采样 + Token级损失）
-python algorithms/dapo_trainer.py
-
-# 一键运行四算法对比实验
-python run_comparison.py
-
-# 生成所有可视化图表
-cd docs && python generate_all_figures.py
+# 单次运行
+python control/train.py --env nav --algo ppo --reward dense --seed 0
+# 全网格(可断点续跑)
+python control/sweep.py --axis all --workers 2
+# 出版级图表 + LaTeX 表格
+python control/analysis.py
+# 核心结论数字 + 发现草稿
+python control/gen_results.py
+# 环境与算法自检
+python control/selftest_envs.py && python control/selftest_algos.py
 ```
 
-> **超参数修改：** 各算法超参数在 `algorithms/xxx_trainer.py` 的 `XxxConfig` 类中直接修改。
+不依赖 MuJoCo / 外部物理引擎,全部在 PyTorch 张量上运行。
+
+## 任务环境(E1–E3)
+
+| 任务 | 机制 | 观测/动作 | 步长 | 成功判据 | 预算 |
+|---|---|---|---|---|---|
+| **E1 `nav`** | 全向机器人穿越随机障碍场(8 线激光雷达观测) | 14 / 2 | 150 | 到达目标(≤0.06),碰撞即终止 | 400k 步 |
+| **E2 `hopper`** | 5-DOF 平面单足,串联弹性被动膝关节(k=18),解析刚体雅可比装配 | 14 / 2 | 250 | 位移 3 m 不摔倒 | 600k 步 |
+| **E3 `grasp`** | 速度控制三连杆机械臂,带滞回的动力学抓取,提起即成功 | 16 / 4 | 160 | 将物体持举 15 cm | 500k 步 |
+
+## 奖励范式(`control/rewards/paradigms.py`)
+
+每个任务配 **sparse / dense / PBS(势函数)/ curriculum** 四种范式(共 12 个带审计的奖励函数)。任务信号与奖励解耦;每个奖励项训练时全程记录(奖励黑客遥测——见论文2 中抓取边界抖动刷奖案例)。
+
+## 算法(`control/algos/`,12 种)
+
+| 家族 | 算法 |
+|---|---|
+| PPO 近端家族(方法开关) | **PPO-Clip、PPO-KL**(自适应)、**PPO-RB**(回滚)、**TR-PPO-RB**(信赖域回滚)、**ESPO**(早停) |
+| 阶段化 / 经典同策略 | **PPG、TRPO**(CG+回溯线搜)、**A2C** |
+| 组相对(源自 LLM RL) | **GRPO-C、DAPO-C**(回合结果基线、clip-higher、动态采样、超时过滤) |
+| 异策略锚点 | **SAC、TD3** |
+
+## 核心结果(dense 奖励,3 种子均值,共 189 组)
+
+| 算法 | E1 导航成功率 | E2 单足位移 | E3 抓取提起 | 备注 |
+|---|---|---|---|---|
+| SAC | **0.830** | **0.899** | 0.629 | 慢 5–8×(E2 4403 s) |
+| PPG | 0.673 | 0.020 | 0.998 | E1 仅 39 s |
+| TRPO | 0.669±0.02 | 0.681 | **1.000±0.00** | CG+线搜开销 |
+| PPO-KL | 0.658 | 0.785 | 0.992 | |
+| PPO-RB | 0.655 | 0.669 | 0.995 | |
+| PPO-Clip | 0.652 | 0.620 | 0.996 | E2 种子散布 ±0.17 |
+| ESPO | 0.648 | 0.755 | 0.568 | |
+| TR-PPO-RB | 0.625 | 0.754 | 0.694 | |
+| GRPO-C | 0.557±0.07 | 0.017 | 0.000 | 仅 E1 中游 |
+| A2C | 0.547 | 0.027 | 0.059 | |
+| TD3 | 0.434 | 0.167 | 0.000 | 种子彩票 |
+| DAPO-C | 0.324 | 0.015 | 0.000 | |
+
+**核心发现**
+
+1. **信赖域保险决定可靠性。** 接触密集的 E2 上,方差受控变体(自适应 KL / 早停 / 信赖域回滚)种子散布 ≤ ±0.12,朴素裁剪散到 ±0.17。
+2. **TRPO 沉默地优秀。** dense 奖励下以种子满分 1.000 拿下 E3,E1 位列第三——早前"高方差"的印象是聚合时混入多奖励范式造成的假象(已在 `control/gen_results.py` 修复,上表为纯 dense 数值)。
+3. **SAC 用 5–8× 墙钟换 E1+E2 双冠;TD3 是种子彩票**(E1 0.43±0.20,E3 为 0)。
+4. **组相对方法(GRPO-C/DAPO-C)只适合 outcome 型任务。** 在最接近 outcome 型的 E1 中游,在运控与多阶段抓取上趋近于零;值得注意的是 E2 上 GRPO-C 用 *sparse*(0.109)反超自己的 dense(0.017)——干净的终端信用更适合组基线。
+5. **奖励范式 × 算法交互真实存在:** PBS 在 E1/E3 拯救稀疏训练、在 E2 崩塌(γ<1 势函数失真);dense 多项回报反而会*污染*组基线。
+
+完整分析:下面两篇论文 + `results/findings_draft.md`。
+
+## 论文(由本套件实验产出)
+
+| 论文 | 标题 | 内容 |
+|---|---|---|
+| [`papers/paper1_algo_comparison/`](papers/paper1_algo_comparison/main.pdf) | *From Trust Regions to Group Baselines: A Unified Empirical Study of Proximal Policy Optimization Families for Robot Control* | 12 算法 × 3 任务 × 3 种子 + 奖励轴,IEEE 6 页,含 PDF |
+| [`papers/paper2_reward_design/`](papers/paper2_reward_design/main.pdf) | *Reward Paradigm Design for Robot Policy Optimization* | 12 个审计奖励函数、范式 × 算法交互、奖励黑客案例研究,IEEE 4 页,含 PDF |
+
+`papers\build_papers.bat` 可重建两篇(MiKTeX 零警告配方)。
+
+## 结果目录
+
+```
+results/
+  <env>/<algo>_<reward>_s<seed>.csv   # 每次评估的学习曲线(189 组)
+  <env>/<algo>_<reward>_s<seed>.json  # 最终汇总 + 奖励项审计
+  figs/                               # 出版图(PDF)+ .tex 表格
+  headline.json / findings_draft.md   # 提炼后的核心数字
+```
 
 ---
 
-## 九、参考文献
+# 第二部分:LLM 后训练研究(v1,原版保留)
 
-[1] J. Schulman et al., "Proximal policy optimization algorithms," arXiv:1707.06347, 2017.
+本仓库的奠基研究:基于 Qwen2-1.5B 的 **PPO / DPO / GRPO / DAPO** 完整实现,IEEE 风格综述(英/中)、算法推导、训练权重,以及 AIME-2024 消融(动态采样 +8 分、过长过滤 +6 分)。
 
-[2] J. Schulman et al., "High-dimensional continuous control using generalized advantage estimation," in Proc. ICLR, 2016.
+**v1 的全部内容都在 [`v1-llm-post-training/`](v1-llm-post-training/README_CN.md) 中,并在该目录内运行**——完整 README(含全部算法长文)、日文版、`algorithms/`、`docs/`(IEEE LaTeX 源 + PDF)、实验输出与权重:
 
-[3] R. Rafailov, A. Sharma, E. Mitchell, S. Ermon, C. D. Manning, and C. Finn, "Direct preference optimization: Your language model is secretly a reward model," in Proc. NeurIPS, 2023.
+```bash
+cd v1-llm-post-training
+pip install -r requirements.txt
+python run_comparison.py        # 四算法对比
+```
 
-[4] DeepSeek-AI, "DeepSeek-R1: Incentivizing reasoning capability in LLMs via reinforcement learning," arXiv:2501.12948, 2025.
+---
 
-[5] Q. Yu et al., "DAPO: An open-source LLM reinforcement learning system," arXiv:2503.14476, 2025.
+# 仓库整体结构
 
-[6] L. Ouyang et al., "Training language models to follow instructions with human feedback," in Proc. NeurIPS, 2022.
+```
+Reinforcement-Learning-Policy/
+│
+├── README.md / README_CN.md        # 本文件 —— v2 优先、双轨道导航
+├── PROJECT_STRUCTURE.md            # 带注释的目录地图(双轨道)
+├── LICENSE / requirements.txt / .gitignore
+│
+├── control/                        # 【v2】机器人控制套件
+│   ├── envs/                       #   nav_obstacle / hopper_lite / reach_grasp
+│   ├── rewards/paradigms.py        #   sparse / dense / pbs / curriculum × 3 任务
+│   ├── algos/                      #   ppo_family / trpo / grpo_dapo / sac / td3 / nets
+│   ├── train.py                    #   统一入口
+│   ├── sweep.py                    #   全网格调度(可断点续跑)
+│   ├── analysis.py                 #   出版级图表 + LaTeX 表格
+│   ├── gen_results.py              #   headline.json + findings_draft.md
+│   ├── configs.py                  #   公平性协议超参
+│   └── selftest_envs.py / selftest_algos.py
+│
+├── papers/                         # 【v2】两篇论文(IEEEtran,含 PDF)
+│   ├── paper1_algo_comparison/     #   算法对比
+│   ├── paper2_reward_design/       #   奖励范式设计
+│   └── build_papers.bat
+│
+├── results/                        # 【v2】189 组实验 + 图表 + 提炼数字
+│
+└── v1-llm-post-training/           # 【v1】LLM 后训练研究(冻结)
+    ├── README.md / README_CN.md / README_JA.md   # 完整长文(英/中/日)
+    ├── algorithms/                 #   ppo / dpo / grpo / dapo 训练器
+    ├── docs/                       #   IEEE 综述(PDF + LaTeX)、算法深剖、图
+    ├── data / models / checkpoints / scripts / src
+    ├── DAPO_GRPO_PPO_DPO/          #   四算法实验输出 + 权重
+    ├── GRPO_PPO_DPO/               #   更早的三算法输出
+    ├── run_comparison.py / requirements.txt
+    └── DAPO.pdf / DeepSeek_R1.pdf / 分析报告      # 参考论文与笔记
+```
 
-[7] P. F. Christiano et al., "Deep reinforcement learning from human preferences," in Proc. NeurIPS, 2017.
+# 版本历史
 
-[8] K. Ethayarajh et al., "KTO: Model alignment as prospect theoretic optimization," arXiv:2402.01306, 2024.
+| 版本 | 日期 | 内容 |
+|---|---|---|
+| v1(3.0.0) | 2025-04 | 首次公开:PPO/DPO/GRPO/DAPO LLM 研究(初名 `deepseek_r1_qwen2-1.5b`,后名 `PPOvDPOvGRPOvDAPO`) |
+| v2 | 2026-11 | 机器人控制套件:12 算法 × 3 任务 × 4 奖励范式,189 组实验,两篇论文 |
+| v2.1 | 2026-11-14 | 本次重组:目录版本化(`v1-llm-post-training/`);**修复 `gen_results.py` 聚合双 bug**(dense-only 排名、按算法奖励轴);论文以修正叙述重建、三张结果表恢复为正规浮动体;README 拆分为双轨道 |
 
-[9] M. G. Azar et al., "A general theoretical paradigm to understand learning from human preferences," in Proc. AISTATS, 2024.
-
-[10] L. Gao, J. Schulman, and J. Hilton, "Scaling laws for reward model overoptimization," in Proc. ICML, 2023.
-
-[11] H. Lightman et al., "Let's verify step by step," in Proc. ICLR, 2024.
-
-[12] C. Snell et al., "Scaling LLM test-time compute optimally can be more effective than scaling model parameters," arXiv:2408.03314, 2024.
-
-[13] Z. Guo et al., "DeepSeekMath: Pushing the limits of mathematical reasoning in open language models," arXiv:2402.03300, 2024.
-
-[14] A. Yang et al., "Qwen2.5 technical report," arXiv:2412.15115, 2024.
-
-[15] D. M. Ziegler et al., "Fine-tuning language models from human preferences," arXiv:1909.08593, 2019.
-
-[16] N. Stiennon et al., "Learning to summarize with human feedback," in Proc. NeurIPS, vol. 33, pp. 3008–3021, 2020.
-
-[17] Y. Bai et al., "Constitutional AI: Harmlessness from AI feedback," arXiv:2212.08073, 2022.
-
-[18] A. Glaese et al., "Improving alignment of dialogue agents via targeted human judgements," arXiv:2209.14375, 2022.
-
-[19] J. Wei et al., "Chain-of-thought prompting elicits reasoning in large language models," in Proc. NeurIPS, vol. 35, 2022.
-
-[20] S. Yao et al., "Tree of thoughts: Deliberate problem solving with large language models," in Proc. NeurIPS, 2023.
-
-[21] N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao, "Reflexion: Language agents with verbal reinforcement learning," in Proc. NeurIPS, 2023.
-
-[22] K. Cobbe et al., "Training verifiers to solve math word problems," arXiv:2110.14168, 2021.
-
-[23] D. Hendrycks et al., "Measuring mathematical problem solving with the MATH dataset," in Proc. NeurIPS, vol. 34, 2021.
-
-[24] J. Schulman et al., "Trust region policy optimization," in Proc. ICML, 2015.
-
-[25] R. J. Williams, "Simple statistical gradient-following algorithms for connectionist reinforcement learning," Mach. Learn., vol. 8, no. 3–4, pp. 229–256, 1992.
-
-[26] H. Lee, S. Phatale, H. Mansoor, K. Lu, T. Mesnard, J. Ferret, and C. Bishop, "RLAIF: Scaling reinforcement learning from human feedback with AI feedback," arXiv:2309.00267, 2023.
-
-[27] J. Uesato et al., "Solving math word problems with process- and outcome-based feedback," arXiv:2211.14275, 2022.
-
-[28] E. Zelikman, Y. Wu, J. Mu, and N. D. Goodman, "STaR: Bootstrapping reasoning with reasoning," in Proc. NeurIPS, vol. 35, 2022.
-
-[29] W. Yuan, R. Y. Pang et al., "Self-rewarding language models," in Proc. ICML, 2024.
-
-[30] Y. Wu, Z. Sun, H. Yuan, K. Ji, Y. Yang, and Q. Gu, "Self-play preference optimization for language model alignment," arXiv:2405.00675, 2024.
-
-[31] C. Rosset et al., "Direct Nash optimization: Teaching language models to self-improve with general preferences," arXiv:2404.03715, 2024.
-
-[32] N. Lambert et al., "RewardBench: Evaluating reward models for language modeling," arXiv:2403.13787, 2024.
-
-[33] A. Kumar et al., "Training language models to self-correct via reinforcement learning," arXiv:2409.12917, 2024.
-
-[34] Y. Meng, M. Xia, and D. Chen, "SimPO: Simple preference optimization with a reference-free reward," in Proc. NeurIPS, 2024.
-
-[35] Z. Li et al., "ReMax: A simple, effective, and efficient reinforcement learning method for aligning large language models," in Proc. ICML, 2024.
+# 引用
 
 ```bibtex
-@software{aitachi2025rl_comparison,
+@software{aitachi2026rlp,
   author = {Aitachi},
-  title = {PPO / DPO / GRPO / DAPO: 大语言模型强化学习算法对比研究},
-  year = {2025},
-  url = {https://github.com/aitachi/PPOvDPOvGRPOvDAPO}
+  title = {Reinforcement-Learning-Policy: A Two-Track Comparison of Policy-Optimization Algorithms for Robot Control and LLM Post-Training},
+  year = {2026},
+  url = {https://github.com/aitachi/Reinforcement-Learning-Policy}
 }
 ```
 
----
-
-## 附录A：训练配置
-
-| 参数 | PPO | DPO | GRPO | DAPO |
-|:---|:---|:---|:---|:---|
-| 学习率 | 1e-5 | 5e-6 | 1e-5 | 1e-5 |
-| 裁剪参数 | 0.2 | - | 0.2 | 0.2 / 0.28（非对称） |
-| KL 系数 | - | 0.1 | 0.01 | 移除 |
-| 组大小 | - | - | 16 | 动态 |
-| 最大长度 | 512 | 512 | 512 | 1024 |
-
----
-
-## 附录B：项目结构
-
-![项目结构图](docs/figures/project_map.svg)
-
-```
-PPOvDPOvGRPOvDAPO/
-├── algorithms/                    # 算法核心实现
-│   ├── ppo_trainer.py            # PPO 训练器
-│   ├── dpo_trainer.py            # DPO 训练器
-│   ├── grpo_trainer.py           # GRPO 训练器
-│   └── dapo_trainer.py           # DAPO 训练器
-├── docs/                          # 文档与可视化
-│   ├── PPO_Algorithm.md          # PPO 算法详解
-│   ├── DPO_Algorithm.md          # DPO 算法详解
-│   ├── GRPO_Algorithm.md         # GRPO 算法详解
-│   ├── DAPO_Algorithm.md         # DAPO 算法详解
-│   ├── Algorithm_Comparison.md   # 完整对比分析
-│   ├── RL_LLM_Survey_IEEE_EN.pdf # 英文 IEEE 论文
-│   ├── RL_LLM_Survey_IEEE_CN.pdf # 中文 IEEE 论文
-│   ├── ieee_en/                  # 英文 LaTeX 源文件
-│   ├── ieee_cn/                  # 中文 LaTeX 源文件
-│   └── figures/                  # 所有可视化图表
-├── src/                           # 源代码
-├── data/                          # 训练数据
-├── scripts/                       # 辅助脚本
-├── run_comparison.py              # 算法对比运行器
-└── requirements.txt               # Python 依赖
-```
-
----
-
-## 许可证
-
-MIT License - 详见 [LICENSE](LICENSE) 文件。
-
----
-
-## 致谢
-
-- DeepSeek-AI 团队提供的 GRPO 算法和 DeepSeek-R1 论文
-- 字节跳动提供的 DAPO 算法
-- OpenAI 的 PPO 算法
-- Stanford NLP 小组的 DPO 算法
-- Hugging Face 的 Transformers 库
-- Qwen 团队的基础模型
-
----
-
-**最后更新：** 2025-04-17
-**版本：** 3.0.0
+**作者:** Aitachi · **联系方式:** 44158892@qq.com · **许可证:** MIT

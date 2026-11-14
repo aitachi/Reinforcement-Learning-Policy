@@ -11,6 +11,9 @@ from collections import defaultdict
 
 import numpy as np
 
+# numpy 2.x renamed trapz -> trapezoid; support both
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.normpath(os.path.join(HERE, "..", "results"))
 
@@ -34,7 +37,7 @@ def load_all():
         yi = np.interp(grid, s, y)
         runs.append({"env": r0["env"], "algo": r0["algo"], "reward": r0["reward"],
                      "seed": int(r0["seed"]), "final": float(y[-5:].mean()),
-                     "auc": float(np.trapz(yi) / 100.0),
+                     "auc": float(_trapezoid(yi) / 100.0),
                      "wall": float(rows[-1]["wall"]),
                      "steps_to_half": (float(s[np.argmax(y >= 0.5 * y[-5:].mean())])
                                        if (y >= 0.5 * y[-5:].mean()).any() else None),
@@ -62,7 +65,8 @@ def agg(runs, keys):
 
 def main():
     runs = load_all()
-    by_env_algo = agg(runs, ["env", "algo"])          # dense-only intended
+    dense_runs = [r for r in runs if r["reward"] == "dense"]
+    by_env_algo = agg(dense_runs, ["env", "algo"])     # dense-only rankings
     by_env_algo_rw = agg(runs, ["env", "algo", "reward"])
     by_env_rw = agg(runs, ["env", "reward"])
 
@@ -107,8 +111,8 @@ def main():
                                         round(v["auc_mean"], 4), round(v["wall_mean"]))
                                        for a, v in rankings[e]] for e in rankings},
                 "reward_axis": {e: {a: [(rw, round(v["final_mean"], 4))
-                                        for rw, v in reward_axis[env][algo]]
-                                    for a, algos in reward_axis[env].items()}
+                                        for rw, v in reward_axis[env][a]]
+                                    for a in reward_axis[env]}
                                 for e, env in enumerate(ENV_TOTAL)},
                 "dapo_evidence": dapo_ev,
                 "by_env_algo": by_env_algo, "by_env_algo_reward": by_env_algo_rw}

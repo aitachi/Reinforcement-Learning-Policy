@@ -182,3 +182,6 @@ papers/**/*.log
 papers/**/build*.log
 __pycache__/
 *.pyc
+
+# IDE
+.idea/
