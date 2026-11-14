@@ -98,6 +98,7 @@ python control/selftest_envs.py && python control/selftest_algos.py
 |---|---|---|
 | [`papers/paper1_algo_comparison/`](papers/paper1_algo_comparison/main.pdf) | *From Trust Regions to Group Baselines: A Unified Empirical Study of Proximal Policy Optimization Families for Robot Control* | 12 算法 × 3 任务 × 3 种子 + 奖励轴,IEEE 6 页,含 PDF |
 | [`papers/paper2_reward_design/`](papers/paper2_reward_design/main.pdf) | *Reward Paradigm Design for Robot Policy Optimization* | 12 个审计奖励函数、范式 × 算法交互、奖励黑客案例研究,IEEE 4 页,含 PDF |
+| [`papers/experiment_report/`](papers/experiment_report/main.pdf) | **正式实验报告(中文,11 页)** | 与本 README 完全同步:全部对比表格 + 训练循环/产线管线矢量流程图 + 算法知识图谱 + 两幅 3D 对比图 |
 
 `papers\build_papers.bat` 可重建两篇(MiKTeX 零警告配方)。
 

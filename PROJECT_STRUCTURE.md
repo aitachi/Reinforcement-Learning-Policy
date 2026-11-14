@@ -47,10 +47,14 @@ Reinforcement-Learning-Policy/
 │   ├── findings_draft.md           #   发现草稿
 │   └── summary.csv / sweep_*.log / catchup.log
 │
-├── papers/                         # 【v2】两篇论文(IEEEtran,PDF 已含)
+├── papers/                         # 【v2】两篇论文 + 正式实验报告(均含 PDF)
 │   ├── paper1_algo_comparison/     #   论文1:算法对比(12 算法,6 页)
 │   ├── paper2_reward_design/       #   论文2:奖励范式设计(4 页)
-│   └── build_papers.bat            #   MiKTeX 一键重建(零警告配方)
+│   ├── experiment_report/          #   正式实验报告(中文 11 页:流程图/知识图谱/3D 对比图)
+│   │   ├── main.tex                #     XeLaTeX+ctex 单源(xelatex 两遍重建)
+│   │   ├── gen_report_figs.py      #     生成两幅 3D 矢量图(figs/)
+│   │   └── figs/                   #     fig3d_algo_task / fig3d_paradigm
+│   └── build_papers.bat            #   MiKTeX 一键重建论文1/2(零警告配方)
 │
 │   ┌────────────────────────────────────────────────────────────┐
 │   │  v1 · LLM 后训练研究(原版,冻结;在本目录内运行)           │
@@ -97,6 +101,7 @@ Reinforcement-Learning-Policy/
 | v2 核心数字 | `python control/gen_results.py` |
 | v2 自检 | `python control/selftest_envs.py && python control/selftest_algos.py` |
 | 重建论文 | `papers\build_papers.bat` |
+| 重建实验报告 | `python papers/experiment_report/gen_report_figs.py` 后于该目录 `xelatex main.tex` 两遍 |
 | v1 四算法对比 | `cd v1-llm-post-training && python run_comparison.py` |
 
 ## 性能备注

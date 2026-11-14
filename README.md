@@ -125,6 +125,7 @@ Full analysis: the two papers below + `results/findings_draft.md`.
 |---|---|---|
 | [`papers/paper1_algo_comparison/`](papers/paper1_algo_comparison/main.pdf) | *From Trust Regions to Group Baselines: A Unified Empirical Study of Proximal Policy Optimization Families for Robot Control* | 12 algorithms × 3 tasks × 3 seeds + reward axis, IEEE 6 pp, PDF included |
 | [`papers/paper2_reward_design/`](papers/paper2_reward_design/main.pdf) | *Reward Paradigm Design for Robot Policy Optimization* | 12 audited reward functions, paradigm × algorithm interaction, documented reward-hacking case study, IEEE 4 pp, PDF included |
+| [`papers/experiment_report/`](papers/experiment_report/main.pdf) | **Formal Experiment Report (Chinese, 正式实验报告)** | synced with this README: all comparison tables, training-loop & pipeline flowcharts, algorithm knowledge graph, two 3-D comparison figures, 11 pp |
 
 Rebuild both with `papers\build_papers.bat` (MiKTeX, zero-warning recipe).
 
