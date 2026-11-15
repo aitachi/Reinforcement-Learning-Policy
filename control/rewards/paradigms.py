@@ -297,6 +297,147 @@ class GraspCurriculum(RewardParadigm):
         return r, _term_dict(mix_weight=w * torch.ones_like(r), dense=rd, sparse=rs)
 
 
+# ------------------------------------------------------------ GRASPSEQ ----
+class SeqSparse(RewardParadigm):
+    """terminal-style: only completed pick-lift-place cycles pay."""
+    name = "sparse"
+
+    def __call__(self, sig, done):
+        r = 3.0 * sig["place"] - 0.5 * sig["drop"] - 0.01
+        return r, _term_dict(place=3.0 * sig["place"], drop=-0.5 * sig["drop"],
+                             time=-0.01 * torch.ones_like(r))
+
+
+class SeqDense(RewardParadigm):
+    """approach + first grasp + lift + carry-to-zone progress + place event.
+    Per-object one-shot flags reset on placement and on episode reset."""
+    name = "dense"
+    needs_prev = ("dist_ee_obj", "height")
+    MILESTONES = (0.05, 0.10, 0.14)          # vertical lift milestones
+    ZONE_MILESTONES = (0.25, 0.15)           # horizontal carry-to-zone milestones
+
+    def __init__(self, num_envs, device):
+        super().__init__(num_envs, device)
+        self.prev_dist = torch.zeros(num_envs, device=device)
+        self.prev_h = torch.zeros(num_envs, device=device)
+        self.prev_carry_err = torch.zeros(num_envs, device=device)
+        self.grasp_paid = torch.zeros(num_envs, device=device)
+        self.crossed = torch.zeros(num_envs, len(self.MILESTONES), device=device)
+        self.zone_crossed = torch.zeros(num_envs, len(self.ZONE_MILESTONES), device=device)
+
+    def _carry_err(self, sig):
+        return sig["drop_err"] * sig["carry"]
+
+    def on_reset(self, done, init):
+        self.prev_dist = torch.where(done, init["dist_ee_obj"], self.prev_dist)
+        self.prev_h = torch.where(done, init["height"], self.prev_h)
+        self.prev_carry_err = torch.where(done, torch.zeros_like(self.prev_carry_err), self.prev_carry_err)
+        self.grasp_paid = torch.where(done, torch.zeros_like(self.grasp_paid), self.grasp_paid)
+        self.crossed = torch.where(done.unsqueeze(-1), torch.zeros_like(self.crossed), self.crossed)
+        self.zone_crossed = torch.where(done.unsqueeze(-1), torch.zeros_like(self.zone_crossed), self.zone_crossed)
+
+    def __call__(self, sig, done):
+        approach = 3.0 * (self.prev_dist - sig["dist_ee_obj"])
+        lift = 8.0 * (sig["height"] - self.prev_h).clamp_min(0) * sig["grasp"]
+        first_grasp = 2.0 * ((sig["grasp"] > 0.5) & (self.grasp_paid < 0.5)).float()
+        self.grasp_paid = torch.maximum(self.grasp_paid, sig["grasp"])
+        newly = (sig["height"].unsqueeze(-1) > torch.tensor(self.MILESTONES, device=self.device)) \
+                & (self.crossed < 0.5)
+        milestone = 1.0 * newly.float().sum(-1)
+        self.crossed = ((self.crossed > 0.5) | newly).float()
+        # horizontal carry milestones unlock the post-lift plateau (same
+        # mechanism that fixed E3's hover optimum): p = 1 - |x|/0.3 rises
+        # as the carried object approaches the zone centre
+        p_zone = 1.0 - sig["drop_err"]
+        thr = torch.tensor([1.0 - 0.25 / 0.3, 1.0 - 0.15 / 0.3], device=self.device)
+        zone_new = ((p_zone.unsqueeze(-1) > thr) & (self.zone_crossed < 0.5)
+                    & (sig["carry"] > 0.5).unsqueeze(-1))
+        zone_milestone = 1.0 * zone_new.float().sum(-1)
+        self.zone_crossed = ((self.zone_crossed > 0.5) | zone_new).float()
+        placed_now = sig["place"] > 0.5
+        # fresh object after a placement: per-object flags restart
+        self.grasp_paid = torch.where(placed_now, torch.zeros_like(self.grasp_paid), self.grasp_paid)
+        self.crossed = torch.where(placed_now.unsqueeze(-1), torch.zeros_like(self.crossed), self.crossed)
+        self.zone_crossed = torch.where(placed_now.unsqueeze(-1), torch.zeros_like(self.zone_crossed), self.zone_crossed)
+        self.prev_carry_err = torch.where(placed_now, torch.zeros_like(self.prev_carry_err), self.prev_carry_err)
+        carry_err = self._carry_err(sig)
+        carry = 3.0 * (self.prev_carry_err - carry_err).clamp_min(-0.5)
+        release_zone = torch.zeros_like(sig["place"])
+        r = (approach + lift + milestone + zone_milestone + first_grasp + carry
+             + release_zone + 5.0 * sig["place"] - 0.1 * sig["drop"]
+             - 0.02 - 0.005 * sig["effort"])
+        self.prev_dist = sig["dist_ee_obj"]
+        self.prev_h = sig["height"]
+        self.prev_carry_err = carry_err
+        return r, _term_dict(approach=approach, lift=lift, milestone=milestone,
+                             zone_milestone=zone_milestone, release_zone=release_zone,
+                             grasp_event=first_grasp,
+                             carry=carry, place=5.0 * sig["place"],
+                             drop=-0.1 * sig["drop"])
+
+
+class SeqPBS(RewardParadigm):
+    """sparse + shaping, phi = -4*dist + 2*grasp*min(h,LIFT) - 1.5*drop_err*carry."""
+    name = "pbs"
+
+    def __init__(self, num_envs, device):
+        super().__init__(num_envs, device)
+        self.prev_phi = torch.zeros(num_envs, device=device)
+        self.sparse = SeqSparse(num_envs, device)
+
+    def phi(self, sig):
+        return (-4.0 * sig["dist_ee_obj"] + 2.0 * sig["grasp"] * sig["height"].clamp_max(0.18)
+                - 1.5 * sig["drop_err"] * sig["carry"])
+
+    def on_reset(self, done, init):
+        self.prev_phi = torch.where(done, self.phi(init), self.prev_phi)
+
+    def __call__(self, sig, done):
+        base = self.sparse(sig, done)[0]
+        cur = self.phi(sig)
+        shaping = GAMMA * cur - self.prev_phi
+        self.prev_phi = cur
+        return base + shaping, _term_dict(base=base, shaping=shaping)
+
+
+class SeqCurriculum(RewardParadigm):
+    name = "curriculum"
+
+    def __init__(self, num_envs, device):
+        super().__init__(num_envs, device)
+        self.dense = SeqDense(num_envs, device)
+        self.sparse = SeqSparse(num_envs, device)
+        self.progress = 0.0
+
+    def set_progress(self, p):
+        self.progress = min(max(p, 0.0), 1.0)
+
+    def on_reset(self, done, init):
+        self.dense.on_reset(done, init)
+
+    def __call__(self, sig, done):
+        w = min(1.0, self.progress / 0.8) ** 1.5
+        rd, _ = self.dense(sig, done)
+        rs, _ = self.sparse(sig, done)
+        r = (1 - w) * rd + w * rs
+        return r, _term_dict(mix_weight=w * torch.ones_like(r), dense=rd, sparse=rs)
+
+
+# -------------------------------------------------------------- WALKER ----
+class WalkerDense(HopperDense):
+    """same shape as hopper dense, lower target speed (shorter strides)."""
+    def __init__(self, num_envs, device, target_speed=0.9):
+        super().__init__(num_envs, device, target_speed)
+
+
+class WalkerCurriculum(HopperCurriculum):
+    def __call__(self, sig, done):
+        self.dense.target = 0.3 + 0.6 * min(1.0, self.progress / 0.7)
+        r, t = self.dense(sig, done)
+        t["target_speed"] = self.dense.target * torch.ones_like(r)
+        return r, t
+
+
 PARADIGMS = {
     ("nav", "sparse"): NavSparse, ("nav", "dense"): NavDense,
     ("nav", "pbs"): NavPBS, ("nav", "curriculum"): NavCurriculum,
@@ -304,4 +445,8 @@ PARADIGMS = {
     ("hopper", "pbs"): HopperPBS, ("hopper", "curriculum"): HopperCurriculum,
     ("grasp", "sparse"): GraspSparse, ("grasp", "dense"): GraspDense,
     ("grasp", "pbs"): GraspPBS, ("grasp", "curriculum"): GraspCurriculum,
+    ("graspseq", "sparse"): SeqSparse, ("graspseq", "dense"): SeqDense,
+    ("graspseq", "pbs"): SeqPBS, ("graspseq", "curriculum"): SeqCurriculum,
+    ("walker", "sparse"): HopperSparse, ("walker", "dense"): WalkerDense,
+    ("walker", "pbs"): HopperPBS, ("walker", "curriculum"): WalkerCurriculum,
 }

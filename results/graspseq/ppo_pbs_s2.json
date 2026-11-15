@@ -1,0 +1,38 @@
+{
+ "env": "graspseq",
+ "algo": "ppo",
+ "reward": "pbs",
+ "seed": 2,
+ "total_steps": 802816,
+ "wall_s": 356.8,
+ "eval_success": 0.0,
+ "eval_outcome": 0.0,
+ "eval_len": 300.0,
+ "eval_return": -0.7875802516937256,
+ "eval_return_std": 0.8113338947296143,
+ "eval_success_noisy": 0.0,
+ "eval_outcome_noisy": 0.0,
+ "diag_dist": 0.21641169488430023,
+ "diag_grasp": 0.0,
+ "diag_completed": 0.0,
+ "diag_height": 0.006258983630686998,
+ "diag_objx": 0.3861638903617859,
+ "diag_ev_release": 0.46875,
+ "diag_ev_zone": 0.0,
+ "diag_ev_place": 0.0,
+ "diag_ev_settle_out": 0.0,
+ "last_train_metrics": {
+  "pi_loss": -0.0017237387073691934,
+  "vf_loss": 0.0038138982345117256,
+  "entropy": 3.268892005085945,
+  "approx_kl": 0.004918217823615123,
+  "clip_frac": 0.053314208984375,
+  "log_std": -0.6017875242978334,
+  "epochs": 4,
+  "optimizer_steps": 32
+ },
+ "reward_term_audit": {
+  "base": -0.009999998845160007,
+  "shaping": 8.526991587132215e-05
+ }
+}

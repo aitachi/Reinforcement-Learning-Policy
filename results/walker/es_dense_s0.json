@@ -1,0 +1,23 @@
+{
+ "env": "walker",
+ "algo": "es",
+ "reward": "dense",
+ "seed": 0,
+ "total_steps": 602112,
+ "wall_s": 285.7,
+ "eval_success": 0.0,
+ "eval_outcome": -0.02468031272292137,
+ "eval_len": 4.0,
+ "eval_return": -18.212684631347656,
+ "eval_return_std": 0.6230910420417786,
+ "eval_success_noisy": 0.0,
+ "eval_outcome_noisy": -0.02294512651860714,
+ "last_train_metrics": {
+  "es_fitness": -290.6342468261719,
+  "episode_success": 0.0,
+  "generations": 147.0,
+  "episode_return_mean": -290.6342468261719,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}

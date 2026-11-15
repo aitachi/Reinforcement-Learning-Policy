@@ -14,33 +14,36 @@ Reinforcement-Learning-Policy/
 ├── .gitignore
 │
 │   ┌────────────────────────────────────────────────────────────┐
-│   │  v2 · 机器人控制套件(当前版本,12 算法 × 3 任务 × 4 范式)   │
+│   │  v2 · 机器人控制套件(当前版本,16 算法 × 5 任务 × 4 范式)   │
 │   └────────────────────────────────────────────────────────────┘
 │
 ├── control/                        # 套件源码(纯 PyTorch,无 MuJoCo)
 │   ├── envs/
-│   │   ├── nav_obstacle.py         #   E1 避障导航(14 观测 / 2 动作,激光雷达)
-│   │   ├── hopper_lite.py          #   E2 单足运控(5-DOF 刚体 + 膝关节被动弹簧 k=18)
-│   │   └── reach_grasp.py          #   E3 三连杆抓取(滞回抓取,提起即成功)
+│   │   ├── nav_obstacle.py         #   E1 避障导航(14/2,激光雷达)
+│   │   ├── hopper_lite.py          #   E2 单足运控(5-DOF 刚体+膝弹簧 k=18)
+│   │   ├── reach_grasp.py          #   E3 三连杆抓取(滞回)
+│   │   ├── grasp_seq.py            #   E4 连续抓取循环(3 物体 抓-举-携-呈递)
+│   │   └── walker.py               #   E5 双足行走协调(7-DOF 双腿步态)
 │   ├── rewards/
-│   │   └── paradigms.py            #   4 范式(sparse/dense/PBS/curriculum)× 3 任务 = 12 奖励函数
+│   │   └── paradigms.py            #   4 范式 × 5 任务 = 20 个带审计奖励函数
 │   ├── algos/
-│   │   ├── ppo_family.py           #   PPO-Clip/KL/RB/TR-RB/ESPO + PPG + A2C(方法开关)
-│   │   ├── trpo.py                 #   TRPO(CG + 回溯线搜)
-│   │   ├── grpo_dapo.py            #   GRPO-C / DAPO-C(组相对 + clip-higher + 动态采样)
-│   │   ├── sac.py                  #   SAC 基线
-│   │   ├── td3.py                  #   TD3 基线
+│   │   ├── ppo_family.py           #   PPO-Clip/KL/RB/TR-RB/ESPO + PPG + A2C
+│   │   ├── trpo.py                 #   TRPO(CG+回溯线搜)
+│   │   ├── grpo_dapo.py            #   GRPO-C / DAPO-C
+│   │   ├── sac.py                  #   SAC + SAC-TR(KL 信赖域 actor)
+│   │   ├── td3.py                  #   TD3
+│   │   ├── es.py                   #   ES 镜像采样无梯度基线(torch.func.vmap)
 │   │   └── nets.py                 #   tanh 高斯策略 + GAE rollout
-│   ├── train.py                    #   统一训练入口(train.py --env --algo --reward --seed)
-│   ├── sweep.py                    #   全网格调度,可断点续跑
+│   ├── train.py                    #   统一入口(设备自动路由+加噪评估通道)
+│   ├── sweep.py                    #   全网格调度(断点续跑/--algos 设备分轨/sense 轴)
 │   ├── catchup.py                  #   断点补偿工具
 │   ├── analysis.py                 #   出版级图(PDF)+ LaTeX 表格(figs/)
 │   ├── gen_results.py              #   headline.json + findings_draft.md(dense-only 聚合)
 │   ├── configs.py                  #   公平性协议统一超参
 │   ├── selftest_envs.py            #   环境物理自测
-│   └── selftest_algos.py           #   12 算法 × 3 环境冒烟
+│   └── selftest_algos.py           #   16 算法冒烟(临时目录,不碰 results/)
 │
-├── results/                        # 实验输出(189 组)
+├── results/                        # 实验输出(393 组)
 │   ├── nav/ hopper/ grasp/         #   <algo>_<reward>_s<seed>.{csv,json,log}
 │   ├── figs/                       #   论文图表(PDF)+ tables_*.tex
 │   ├── headline.json               #   核心数字(dense 排名 + 奖励轴 + DAPO 证据)
@@ -104,13 +107,15 @@ Reinforcement-Learning-Policy/
 | 重建实验报告 | `python papers/experiment_report/gen_report_figs.py` 后于该目录 `xelatex main.tex` 两遍 |
 | v1 四算法对比 | `cd v1-llm-post-training && python run_comparison.py` |
 
-## 性能备注
+## 性能备注(2026-11-15 实测)
 
-- nav 走 GPU;hopper/grasp 环境步进在 CPU 上更快(内核启动开销主导,GPU 反慢约 6×);
-- SAC/TD3 必须用 cuda 设备(CPU 上每任务约 6 小时);`torch.set_num_threads(2)`。
+- **设备路由已内置**:同策略家族在 hopper/grasp/E4/E5 走 CPU(小内核启动开销主导);
+  **off-policy(SAC/TD3/SAC-TR)走 GPU——实测快 5.8×**(批量更新主导,环境上 GPU 无碍);
+- 双轨并行:`--algos` 过滤器把 off-policy 指到 GPU 轨(3 workers)与 CPU 轨(2 workers)同跑;
+- `torch.set_num_threads(2)`;训练解释器:`miniconda3/envs/aitachi/python.exe`(torch 2.5.1+cu121)。
 
 ---
 
 **作者:** Aitachi · **邮箱:** 44158892@qq.com · **GitHub:** https://github.com/aitachi/Reinforcement-Learning-Policy
 
-**最后更新:** 2026-11-14(v2.1 重组:目录版本化 + 聚合 bug 修复 + 论文重建)
+**最后更新:** 2026-11-15(v2.2:E4/E5 新环境、16 算法、393 组、GPU 路由与双轨 sweep)

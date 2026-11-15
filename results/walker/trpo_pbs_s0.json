@@ -1,0 +1,27 @@
+{
+ "env": "walker",
+ "algo": "trpo",
+ "reward": "pbs",
+ "seed": 0,
+ "total_steps": 606208,
+ "wall_s": 357.8,
+ "eval_success": 0.03125,
+ "eval_outcome": 0.19860948622226715,
+ "eval_len": 19.125,
+ "eval_return": -1.1624300479888916,
+ "eval_return_std": 0.3299573063850403,
+ "eval_success_noisy": 0.03125,
+ "eval_outcome_noisy": 0.20199671387672424,
+ "last_train_metrics": {
+  "pi_loss": -0.018061216920614243,
+  "vf_loss": 0.009754016864462756,
+  "trpo_accept": 1.0,
+  "post_kl": 0.009605884552001953,
+  "log_std": -0.6932925581932068,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "base": -0.012160629034042358,
+  "shaping": 0.16470612585544586
+ }
+}

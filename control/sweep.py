@@ -3,7 +3,7 @@
 Grid
 ----
 Axis A (algorithm comparison, dense reward):
-    11 algos x 3 envs x 3 seeds
+    16 algos x 5 envs x 3 seeds
 Axis B (reward paradigms, 3 representative algos):
     4 paradigms x 3 envs x 3 seeds  (dense rows shared with Axis A)
 
@@ -25,19 +25,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.normpath(os.path.join(HERE, "..", "results"))
 
 AXIS_ALGOS = ["ppo", "ppo_kl", "ppo_rb", "tr_ppo_rb", "espo", "ppg",
-              "trpo", "a2c", "grpo", "dapo", "sac", "td3"]
+              "trpo", "a2c", "grpo", "dapo", "sac", "td3",
+              "sac_tr", "ppo_ent", "ppo_novc", "es"]
 REWARD_ALGOS = ["ppo", "trpo", "grpo"]          # one on-policy clip / TR / group
+SENSE_ALGOS = ["ppo_e01", "ppo_e03"]            # PPO clip-epsilon sensitivity
 REWARDS = ["sparse", "dense", "pbs", "curriculum"]
 SEEDS = [0, 1, 2]
-ENVS = ["nav", "hopper", "grasp"]
+ENVS = ["nav", "hopper", "grasp", "graspseq", "walker"]
 
 
-def jobs_for(axis, env):
+def jobs_for(axis, env, algos=None):
+    algos = algos or AXIS_ALGOS
     out = []
     if axis in ("algo", "all"):
-        out += [(env, a, "dense", s) for a, s in itertools.product(AXIS_ALGOS, SEEDS)]
+        out += [(env, a, "dense", s) for a, s in itertools.product(algos, SEEDS)]
     if axis in ("reward", "all"):
         out += [(env, a, r, s) for a, r, s in itertools.product(REWARD_ALGOS, REWARDS, SEEDS)]
+    if axis in ("sense", "all") and env in ("nav", "hopper", "grasp"):
+        out += [(env, a, "dense", s) for a, s in itertools.product(SENSE_ALGOS, SEEDS)]
     seen, dedup = set(), []
     for j in out:
         if j not in seen:
@@ -88,12 +93,15 @@ def run_jobs(jobs, workers):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--axis", default="all", choices=["algo", "reward", "all"])
+    ap.add_argument("--axis", default="all", choices=["algo", "reward", "sense", "all"])
     ap.add_argument("--env", default=None, help="restrict to one env")
     ap.add_argument("--workers", type=int, default=2)
+    ap.add_argument("--algos", default=None,
+                    help="comma list restricting Axis-A algorithms (device split)")
     args = ap.parse_args()
     envs = [args.env] if args.env else ENVS
-    jobs = [j for e in envs for j in jobs_for(args.axis, e)]
+    algos = args.algos.split(",") if args.algos else None
+    jobs = [j for e in envs for j in jobs_for(args.axis, e, algos)]
     run_jobs(jobs, args.workers)
 
 

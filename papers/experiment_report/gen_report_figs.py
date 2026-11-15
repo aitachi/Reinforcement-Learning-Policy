@@ -21,14 +21,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIGS = os.path.join(HERE, "figs")
 os.makedirs(FIGS, exist_ok=True)
 
-ENVS = ["nav", "hopper", "grasp"]
-ENV_CN = {"nav": "E1 导航", "hopper": "E2 单足", "grasp": "E3 抓取"}
-ALGO_ORDER = ["sac", "ppg", "trpo", "ppo_kl", "ppo_rb", "ppo",
-              "espo", "tr_ppo_rb", "grpo", "a2c", "td3", "dapo"]
-ALGO_CN = {"sac": "SAC", "ppg": "PPG", "trpo": "TRPO", "ppo_kl": "PPO-KL",
-           "ppo_rb": "PPO-RB", "ppo": "PPO-Clip", "espo": "ESPO",
+ENVS = ["nav", "hopper", "grasp", "graspseq", "walker"]
+ENV_CN = {"nav": "E1 导航", "hopper": "E2 单足", "grasp": "E3 抓取",
+          "graspseq": "E4 连续抓取", "walker": "E5 双足行走"}
+ALGO_ORDER = ["sac", "sac_tr", "ppg", "trpo", "ppo_kl", "ppo_rb", "ppo",
+              "ppo_ent", "ppo_novc", "espo", "tr_ppo_rb", "grpo",
+              "a2c", "td3", "dapo", "es"]
+ALGO_CN = {"sac": "SAC", "sac_tr": "SAC-TR", "ppg": "PPG", "trpo": "TRPO",
+           "ppo_kl": "PPO-KL", "ppo_rb": "PPO-RB", "ppo": "PPO-Clip",
+           "ppo_ent": "PPO-Ent", "ppo_novc": "PPO-NoVC", "espo": "ESPO",
            "tr_ppo_rb": "TR-PPO-RB", "grpo": "GRPO-C", "a2c": "A2C",
-           "td3": "TD3", "dapo": "DAPO-C"}
+           "td3": "TD3", "dapo": "DAPO-C", "es": "ES"}
 RW_CN = {"sparse": "稀疏 sparse", "dense": "稠密 dense",
          "pbs": "势函数 PBS", "curriculum": "课程 curriculum"}
 

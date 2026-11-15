@@ -17,9 +17,12 @@ _trapezoid = getattr(np, "trapezoid", None) or np.trapz
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.normpath(os.path.join(HERE, "..", "results"))
 
-ENV_TOTAL = {"nav": 400_000, "hopper": 600_000, "grasp": 500_000}
-METRIC = {"nav": "eval_success", "hopper": "eval_outcome", "grasp": "eval_success"}
-ENV_NAME = {"nav": "E1 Nav", "hopper": "E2 Hopper", "grasp": "E3 Grasp"}
+ENV_TOTAL = {"nav": 400_000, "hopper": 600_000, "grasp": 500_000,
+             "graspseq": 800_000, "walker": 600_000}
+METRIC = {"nav": "eval_success", "hopper": "eval_outcome", "grasp": "eval_success",
+          "graspseq": "eval_outcome", "walker": "eval_outcome"}
+ENV_NAME = {"nav": "E1 Nav", "hopper": "E2 Hopper", "grasp": "E3 Grasp",
+            "graspseq": "E4 GraspSeq", "walker": "E5 Walker"}
 
 
 def load_all():
@@ -41,6 +44,11 @@ def load_all():
                      "wall": float(rows[-1]["wall"]),
                      "steps_to_half": (float(s[np.argmax(y >= 0.5 * y[-5:].mean())])
                                        if (y >= 0.5 * y[-5:].mean()).any() else None),
+                     "steps_to_80": (float(s[np.argmax(y >= 0.8 * y[-5:].mean())])
+                                     if (y >= 0.8 * y[-5:].mean()).any() else None),
+                     "final_noisy": (float(np.mean([float(x["eval_outcome_noisy"]) for x in rows[-5:]
+                                                    if x.get("eval_outcome_noisy") not in (None, "")]))
+                                     if any(x.get("eval_outcome_noisy") not in (None, "") for x in rows[-5:]) else None),
                      "curve": (s.tolist(), y.tolist())})
     return runs
 
@@ -59,7 +67,12 @@ def agg(runs, keys):
             "wall_mean": float(np.mean([x["wall"] for x in v])),
             "n": len(v),
             "steps_to_half_med": float(np.median([x["steps_to_half"] for x in v
-                                                  if x["steps_to_half"]])) if any(x["steps_to_half"] for x in v) else None}
+                                                  if x["steps_to_half"]])) if any(x["steps_to_half"] for x in v) else None,
+            "steps_to_80_med": float(np.median([x["steps_to_80"] for x in v
+                                                if x["steps_to_80"]])) if any(x["steps_to_80"] for x in v) else None,
+            "final_noisy_mean": (float(np.mean([x["final_noisy"] for x in v
+                                                if x["final_noisy"] is not None]))
+                                 if any(x["final_noisy"] is not None for x in v) else None)}
     return out
 
 

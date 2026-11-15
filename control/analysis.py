@@ -29,21 +29,30 @@ plt.rcParams.update({
 })
 
 ENV_TITLES = {"nav": "E1 Nav-Obstacle", "hopper": "E2 Hopper-Locomotion",
-              "grasp": "E3 Reach-Grasp"}
+              "grasp": "E3 Reach-Grasp", "graspseq": "E4 GraspSeq-Cycles",
+              "walker": "E5 Walker-Biped"}
 ENV_METRIC = {"nav": ("eval_success", "success rate"),
               "hopper": ("eval_outcome", "displacement /10 m"),
-              "grasp": ("eval_success", "lift success rate")}
+              "grasp": ("eval_success", "lift success rate"),
+              "graspseq": ("eval_outcome", "cycles completed /3"),
+              "walker": ("eval_outcome", "displacement /10 m")}
 ALGOS = ["ppo", "ppo_kl", "ppo_rb", "tr_ppo_rb", "espo", "ppg",
-         "trpo", "a2c", "grpo", "dapo", "sac", "td3"]
+         "trpo", "a2c", "grpo", "dapo", "sac", "td3",
+         "sac_tr", "ppo_ent", "ppo_novc", "es"]
 LABELS = {"ppo": "PPO", "ppo_kl": "PPO-KL", "ppo_rb": "PPO-RB",
           "tr_ppo_rb": "TR-PPO-RB", "espo": "ESPO", "ppg": "PPG",
           "trpo": "TRPO", "a2c": "A2C", "grpo": "GRPO-C", "dapo": "DAPO-C",
-          "sac": "SAC", "td3": "TD3", "tr": "TRPO"}
+          "sac": "SAC", "td3": "TD3", "tr": "TRPO",
+          "sac_tr": "SAC-TR", "ppo_ent": "PPO-Ent", "ppo_novc": "PPO-NoVC",
+          "es": "ES", "ppo_e01": "PPO(eps=0.1)", "ppo_e03": "PPO(eps=0.3)"}
 FAMILY = {"ppo": "#1f77b4", "ppo_kl": "#4c9be8", "ppo_rb": "#7fc3ff",
           "tr_ppo_rb": "#0d5a8f", "espo": "#9ecae1", "ppg": "#3182bd",
           "trpo": "#d62728", "a2c": "#ff9896", "grpo": "#2ca02c",
-          "dapo": "#98df8a", "sac": "#9467bd", "td3": "#c5b0d5"}
-ENV_TOTAL = {"nav": 400_000, "hopper": 600_000, "grasp": 500_000}
+          "dapo": "#98df8a", "sac": "#9467bd", "td3": "#c5b0d5",
+          "sac_tr": "#b159bd", "ppo_ent": "#7fb2b8", "ppo_novc": "#497a80",
+          "es": "#8c564b", "ppo_e01": "#aaaaaa", "ppo_e03": "#666666"}
+ENV_TOTAL = {"nav": 400_000, "hopper": 600_000, "grasp": 500_000,
+             "graspseq": 800_000, "walker": 600_000}
 
 
 def load_runs(env, reward=None, algo=None):

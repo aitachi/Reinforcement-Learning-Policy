@@ -1,0 +1,29 @@
+{
+ "env": "walker",
+ "algo": "trpo",
+ "reward": "dense",
+ "seed": 0,
+ "total_steps": 606208,
+ "wall_s": 984.7,
+ "eval_success": 0.859375,
+ "eval_outcome": 0.7448262572288513,
+ "eval_len": 187.5625,
+ "eval_return": 150.91453552246094,
+ "eval_return_std": 56.64337921142578,
+ "eval_success_noisy": 0.9375,
+ "eval_outcome_noisy": 0.7754192352294922,
+ "last_train_metrics": {
+  "pi_loss": -0.014190919697284698,
+  "vf_loss": 102.54203796386719,
+  "trpo_accept": 1.0,
+  "post_kl": 0.008256492204964161,
+  "log_std": -0.620653510093689,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "speed": 0.2590939700603485,
+  "alive": 0.5,
+  "fall": 0.0,
+  "effort": -0.003923042677342892
+ }
+}

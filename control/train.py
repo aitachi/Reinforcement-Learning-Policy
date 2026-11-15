@@ -23,8 +23,7 @@ from rewards import PARADIGMS
 from algos import make_algo
 
 
-def evaluate(eval_env, reward_eval, algo, device):
-    """64 deterministic episodes; returns success, outcome, length, return."""
+def _eval_pass(eval_env, reward_eval, algo, device, act_noise=0.0, obs_noise=0.0):
     obs = eval_env.reset()
     B = eval_env.num_envs
     alive = torch.ones(B, device=device, dtype=torch.bool)
@@ -35,14 +34,20 @@ def evaluate(eval_env, reward_eval, algo, device):
     reward_eval.on_reset(torch.zeros(B, dtype=torch.bool, device=device),
                          eval_env.initial_signals())
     steps = 0
+    info = {}
     while alive.any() and steps < eval_env.max_steps:
+        o = obs
+        if obs_noise > 0:
+            o = obs + obs_noise * torch.randn_like(obs)
         policy = getattr(algo, "policy", None)
         if algo.kind in ("sac", "td3"):
             a = algo.act(obs, deterministic=True) if algo.kind == "td3" else algo.act(obs)
         elif policy is not None:
-            a = policy.act(obs, deterministic=True)[0]
+            a = policy.act(o, deterministic=True)[0]
         else:
             raise RuntimeError("no policy")
+        if act_noise > 0:
+            a = (a + act_noise * torch.randn_like(a)).clamp(-1, 1)
         obs, sig, done, info = eval_env.step(a)
         r, _ = reward_eval(sig, done)
         ret += r.float() * alive.float()
@@ -54,14 +59,27 @@ def evaluate(eval_env, reward_eval, algo, device):
             reward_eval.on_reset(newly, eval_env.initial_signals())
         alive = alive & ~done
         steps += 1
+    return {"success": success.mean().item(), "outcome": outcome.mean().item(),
+            "len": length.mean().item(), "ret": ret.mean().item(),
+            "ret_std": ret.std().item()}, info
+
+
+def evaluate(eval_env, reward_eval, algo, device):
+    """64 deterministic episodes + a perturbed robustness pass
+    (action noise sigma=0.1, observation noise sigma=0.05, v2.2 protocol)."""
+    clean, info = _eval_pass(eval_env, reward_eval, algo, device)
+    noisy, _ = _eval_pass(eval_env, reward_eval, algo, device,
+                          act_noise=0.1, obs_noise=0.05)
     diag = {}
     if "diag" in info:
         diag = {f"diag_{k}": v for k, v in info["diag"].items()}
-    return {"eval_success": success.mean().item(),
-            "eval_outcome": outcome.mean().item(),
-            "eval_len": length.mean().item(),
-            "eval_return": ret.mean().item(),
-            "eval_return_std": ret.std().item(), **diag}
+    return {"eval_success": clean["success"],
+            "eval_outcome": clean["outcome"],
+            "eval_len": clean["len"],
+            "eval_return": clean["ret"],
+            "eval_return_std": clean["ret_std"],
+            "eval_success_noisy": noisy["success"],
+            "eval_outcome_noisy": noisy["outcome"], **diag}
 
 
 def run(env_name, algo_name, reward_name, seed, total_steps=None, out_root=None,
@@ -70,8 +88,16 @@ def run(env_name, algo_name, reward_name, seed, total_steps=None, out_root=None,
     ecfg = ENVS_CFG[env_name]
     total = total_steps or ecfg["total_steps"]
     if device_name is None:
-        # hopper/grasp kernels are launch-bound at these batch sizes: CPU wins
-        device_name = "cuda" if (torch.cuda.is_available() and env_name not in ("hopper", "grasp")) else "cpu"
+        # device routing (measured): on-policy families are env-stepping
+        # bound with tiny kernels -> CPU wins on hopper/grasp(/E4/E5);
+        # off-policy (SAC/TD3/SAC-TR) are batch-update bound -> GPU wins
+        # 5.8x even when the env tensors live on GPU (bench 2026-11-14)
+        offpolicy = algo_name in ("sac", "td3", "sac_tr")
+        cpu_env = env_name in ("hopper", "grasp", "graspseq", "walker")
+        if torch.cuda.is_available() and (offpolicy or not cpu_env):
+            device_name = "cuda"
+        else:
+            device_name = "cpu"
     device = torch.device(device_name)
     if device.type == "cpu":
         torch.set_num_threads(2)   # more threads hurt small-batch env kernels
@@ -85,8 +111,10 @@ def run(env_name, algo_name, reward_name, seed, total_steps=None, out_root=None,
     num_envs = ecfg["num_envs"]
     algo = make_algo(algo_name, ENVS[env_name].obs_dim, ENVS[env_name].act_dim,
                      device, cfg)
-    if getattr(algo, "needs", "transition") == "episode":
+    if getattr(algo, "needs", "transition") == "episode" and hasattr(algo, "N"):
         num_envs = algo.N * algo.G
+    elif getattr(algo, "kind", "") == "es":
+        num_envs = 64          # ES population = env slots (antithetic pairs)
     env = ENVS[env_name](num_envs, seed, device)
     eval_env = ENVS[env_name](64, 7777 + seed, device)
     eval_env.set_progress(1.0)

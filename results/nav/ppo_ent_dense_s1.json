@@ -1,0 +1,32 @@
+{
+ "env": "nav",
+ "algo": "ppo_ent",
+ "reward": "dense",
+ "seed": 1,
+ "total_steps": 409600,
+ "wall_s": 146.6,
+ "eval_success": 0.703125,
+ "eval_outcome": 0.40625,
+ "eval_len": 8.5625,
+ "eval_return": 1.4660358428955078,
+ "eval_return_std": 2.2478203773498535,
+ "eval_success_noisy": 0.703125,
+ "eval_outcome_noisy": 0.421875,
+ "last_train_metrics": {
+  "pi_loss": -0.0011172282975167036,
+  "vf_loss": 0.6932479329407215,
+  "entropy": 1.6877590790390968,
+  "approx_kl": 0.0030984627173893386,
+  "clip_frac": 0.031402587890625,
+  "log_std": -0.5750619433820248,
+  "epochs": 4,
+  "optimizer_steps": 32
+ },
+ "reward_term_audit": {
+  "progress": 0.08493231981992722,
+  "time": -0.009999999776482582,
+  "effort": -0.011636866256594658,
+  "success": 0.1875,
+  "collision": -0.03125
+ }
+}

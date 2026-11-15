@@ -25,16 +25,16 @@
 \vspace{0.9cm}
 {\Large Reinforcement-Learning-Policy · v2 机器人控制套件\par}
 \vspace{0.5cm}
-{\large 12 算法 $\times$ 3 任务 $\times$ 4 奖励范式 $\times$ 3 种子 = 189 组受控实验\par}
+{\large 16 算法 $\times$ 5 任务 $\times$ 4 奖励范式 = 393 组受控实验\par}
 \vspace{2.2cm}
-{\large\itshape 同步自仓库 README\_CN.md(v2.1,2026-11-14)\par}
+{\large\itshape 同步自仓库 README\_CN.md(v2.2,2026-11-15)\par}
 \vspace{2.6cm}
 \begin{tabular}{rl}
 \textbf{作 者} & Aitachi\\
 \textbf{联 系} & 44158892@qq.com\\
 \textbf{仓 库} & \url{https://github.com/aitachi/Reinforcement-Learning-Policy}\\
 \textbf{许 可} & MIT\\
-\textbf{日 期} & 2026 年 11 月 14 日\\
+\textbf{日 期} & 2026 年 11 月 15 日\\
 \end{tabular}
 \vfill
 \end{titlepage}
@@ -43,7 +43,7 @@
 \newpage
 
 \section*{摘要}
-本报告是 \textbf{Reinforcement-Learning-Policy} 仓库 v2 机器人控制套件的正式实验报告,内容与仓库双语 README 完全同步。套件在统一公平性协议(相同采样预算、网络规模、优化器与种子)下,对 \textbf{12 种}策略优化算法——信赖域近端家族(PPO-Clip/KL/RB/TR-RB/ESPO、PPG、TRPO、A2C)、源自 LLM 后训练的组相对家族(GRPO-C、DAPO-C)与异策略锚点(SAC、TD3)——在 3 个自包含机器人任务(E1 避障导航、E2 单足运控、E3 抓取-提起)上展开对比,每个任务配备稀疏/稠密/势函数(PBS)/课程四种奖励范式,共计 \textbf{189 组}受控实验,并产出两篇 IEEE 论文与本报告。报告除汇总核心结果表外,提供训练循环与产线管线两张矢量流程图、算法知识图谱,以及算法$\times$任务、奖励范式$\times$算法$\times$任务两幅三维对比图。核心结论:信赖域保险(自适应 KL/早停/信赖域回滚)决定接触密集任务的可靠性;TRPO 在 E3 取得种子满分 1.000;SAC 以 5--8$\times$ 墙钟代价取得 E1+E2 双冠;组相对方法仅在 outcome 型任务可用;奖励范式与算法必须联合选择。
+本报告是 \textbf{Reinforcement-Learning-Policy} 仓库 v2 机器人控制套件的正式实验报告,内容与仓库双语 README 完全同步。套件在统一公平性协议(相同采样预算、网络规模、优化器与种子、加噪鲁棒评估通道)下,对 \textbf{16 种}策略优化算法——信赖域近端家族(PPO-Clip/KL/RB/TR-RB/ESPO、PPG、TRPO、A2C)、组相对家族(GRPO-C、DAPO-C)、异策略锚点(SAC、TD3、SAC-TR)与无梯度基线(ES)——在 \textbf{5 个}自包含机器人任务(E1 避障导航、E2 单足运控、E3 抓取-提起、E4 连续抓取循环、E5 双足行走协调)上展开对比,每个任务配备稀疏/稠密/势函数(PBS)/课程四种奖励范式,共计 \textbf{393 组}受控实验,并产出两篇 IEEE 论文与本报告。报告除汇总核心结果表外,提供训练循环与产线管线两张矢量流程图、算法知识图谱,以及算法$\times$任务、奖励范式$\times$算法$\times$任务两幅三维对比图。核心结论:信赖域保险(自适应 KL/早停/信赖域回滚)决定接触密集任务的可靠性;TRPO 在 E3 取得种子满分 1.000;SAC 以 5--8$\times$ 墙钟代价取得 E1+E2 双冠;组相对方法仅在 outcome 型任务可用;奖励范式与算法必须联合选择。
 
 \section{项目背景与双轨道架构}
 
@@ -57,7 +57,7 @@
 \toprule
 轨道 & 状态 & 领域与规模 & 入口 \\
 \midrule
-\textbf{v2 机器人控制} & 当前版本 & 12 算法 $\times$ 3 任务 $\times$ 4 范式,189 组,2 篇论文 & \texttt{control/} \texttt{papers/} \texttt{results/} \\
+\textbf{v2 机器人控制} & 当前版本 & 16 算法 $\times$ 5 任务 $\times$ 4 范式,393 组,2 篇论文 & \texttt{control/} \texttt{papers/} \texttt{results/} \\
 v1 LLM 后训练 & 原版冻结 & Qwen2-1.5B 上的 PPO/DPO/GRPO/DAPO + IEEE 综述 & \texttt{v1-llm-post-training/} \\
 \bottomrule
 \end{tabular}
@@ -67,9 +67,13 @@ v1 LLM 后训练 & 原版冻结 & Qwen2-1.5B 上的 PPO/DPO/GRPO/DAPO + IEEE 综
 
 \section{实验设置}
 
-\subsection{任务环境(E1--E3)}
+\subsection{场景覆盖矩阵}
 
-三个任务均为纯 PyTorch、GPU 批量化实现(64--128 并行回合),不依赖 MuJoCo 等外部物理引擎;任务信号与奖励范式解耦,任意奖励可驱动任意任务。
+本套件按机器人能力三维度设计任务:\textbf{连续抓取动作行为}=E4,\textbf{运控}=E2,\textbf{全身行走协调}=E5(另含 E1 导航与 E3 单次抓取作基础对照)。
+
+\subsection{任务环境(E1--E5)}
+
+五个任务均为纯 PyTorch、向量化实现(64--128 并行回合,设备自动路由:同策略家族 CPU / off-policy GPU),不依赖 MuJoCo 等外部物理引擎;任务信号与奖励范式解耦。
 
 \begin{table}[H]
 \centering
@@ -82,11 +86,13 @@ v1 LLM 后训练 & 原版冻结 & Qwen2-1.5B 上的 PPO/DPO/GRPO/DAPO + IEEE 综
 E1 \texttt{nav} & 全向机器人穿越随机障碍场(8 线激光雷达) & 14 / 2 & 150 & 到达目标($\le$0.06),碰撞即败 & 400k \\
 E2 \texttt{hopper} & 5-DOF 平面单足,串联弹性膝关节($k{=}18$) & 14 / 2 & 250 & 位移 3\,m 不摔倒 & 600k \\
 E3 \texttt{grasp} & 速度控制三连杆臂,滞回抓取 & 16 / 4 & 160 & 持举物体 15\,cm & 500k \\
+E4 \texttt{graspseq} & 同臂 3 件物体顺序循环:抓$\to$举$\to$携入区$\to$稳定呈递换件;臂不归位 & 19 / 4 & 300 & 3 轮全成 & 800k \\
+E5 \texttt{walker} & 7-DOF 平面双足(4 驱动),逐足接触,须自学双腿步态 & 23 / 4 & 250 & 位移 3\,m 不摔 & 600k \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{算法(12 种)}
+\subsection{算法(16 种 + 2 敏感变体)}
 
 \begin{table}[H]
 \centering
@@ -98,18 +104,22 @@ E3 \texttt{grasp} & 速度控制三连杆臂,滞回抓取 & 16 / 4 & 160 & 持�
 PPO 近端家族(方法开关) & PPO-Clip、PPO-KL(自适应)、PPO-RB(回滚)、TR-PPO-RB(信赖域回滚)、ESPO(早停) \\
 阶段化 / 经典同策略 & PPG、TRPO(CG + 回溯线搜)、A2C \\
 组相对(源自 LLM RL) & GRPO-C、DAPO-C(回合结果基线、clip-higher、动态采样、超时过滤) \\
-异策略锚点 & SAC、TD3 \\
+异策略锚点 & SAC、TD3、\textbf{SAC-TR}(KL 信赖域 actor = 与 PPO-KL``同约束异采样''对照) \\
+无梯度基线 & \textbf{ES}(镜像采样 OpenAI-ES,同 $2\times128$ 网络) \\
+PPO 消融/敏感 & \textbf{PPO-Ent}(熵)、\textbf{PPO-NoVC}(去价值裁剪)、PPO-Clip $\epsilon\in\{0.1,0.3\}$(sense 轴) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{奖励范式与公平性协议}
 
-每个任务配备 \textbf{sparse / dense / PBS(势函数)/ curriculum} 四种范式,合计 12 个带逐项审计的奖励函数;每个奖励项在训练时全程记录(奖励黑客遥测,论文 2 含抓取边界抖动刷奖的完整案例研究)。
+每个任务配备 \textbf{sparse / dense / PBS(势函数)/ curriculum} 四种范式,合计 20 个带逐项审计的奖励函数;每个奖励项在训练时全程记录(奖励黑客遥测,论文 2 含抓取边界抖动刷奖的完整案例研究)。
 
 \textbf{公平性协议:}统一采样(64 环境 $\times$ 256 步 rollout)、$2\times128$ tanh MLP 正交初始化、Adam $3\times10^{-4}$(TRPO 主角 $3\times10^{-5}$;GRPO/DAPO $10^{-4}$)、梯度范数裁剪 0.5、GAE $(0.99,0.95)$、价值裁剪、4 内层 epoch、minibatch 2048;每 20k 步以确定性策略在 64 个满难度 held-out 回合上评估。
 
-\textbf{实验网格:}A 轴(算法)12 算法 $\times$ 3 任务 $\times$ 3 种子,dense 奖励(108 组);B 轴(奖励)其余 3 范式 $\times$ 3 任务 $\times$ 3 种子 $\times$ 3 代表算法(PPO-Clip、TRPO、GRPO-C,与 A 轴共享 dense)(81 组),合计 \textbf{189 组}。
+\textbf{实验网格:}A 轴(算法)16 算法 $\times$ 5 任务 $\times$ 3 种子,dense 奖励(240 组);B 轴(奖励)其余 3 范式 $\times$ 3 代表算法 $\times$ 5 任务 $\times$ 3 种子(135 组);sense 轴(PPO $\epsilon$ 敏感性)2 变体 $\times$ 3 任务 $\times$ 3 种子(18 组),合计 \textbf{393 组}。
+
+\textbf{鲁棒性评估协议(v2.2):}每次评估除确定性通道外并行加噪通道(动作 $\sigma{=}0.1$ + 观测 $\sigma{=}0.05$)记录 \texttt{eval\_*\_noisy};同时按格报告 \textbf{steps-to-80\%} 达标步数。
 
 \section{实验工作流}
 
@@ -126,7 +136,7 @@ PPO 近端家族(方法开关) & PPO-Clip、PPO-KL(自适应)、PPO-RB(回滚)�
   lbl/.style={font=\scriptsize,cgray}]
 \node[box,fill=cblue!12] (collect) {\textbf{向量化采集}\\64 环境 $\times$ 256 步};
 \node[box,right=of collect] (gae) {\textbf{GAE 优势估计}\\$\gamma{=}0.99,\ \lambda{=}0.95$};
-\node[box,right=of gae,fill=cgreen!12] (update) {\textbf{策略更新(方法开关)}\\近端:Clip / KL / RB / TR-RB / ESPO\\阶段化:PPG / TRPO / A2C\\组相对:GRPO-C / DAPO-C\\异策略:SAC / TD3};
+\node[box,right=of gae,fill=cgreen!12] (update) {\textbf{策略更新(方法开关)}\\近端:Clip / KL / RB / TR-RB / ESPO\\阶段化:PPG / TRPO / A2C\\组相对:GRPO-C / DAPO-C\\异策略:SAC / TD3 / SAC-TR\\无梯度:ES};
 \node[box,below=of update,fill=corange!14] (eval) {\textbf{确定性评估}\\64 held-out 回合\\每 20k 步};
 \node[io,below=of collect] (log) {CSV 学习曲线\\JSON 汇总};
 \node[io,below=of gae] (audit) {\textbf{奖励逐项审计}\\每项均值全程记录};
@@ -149,7 +159,7 @@ PPO 近端家族(方法开关) & PPO-Clip、PPO-KL(自适应)、PPO-RB(回滚)�
   stage/.style={draw=cgray,rounded corners=2pt,align=center,inner sep=6pt,font=\small,thick},
   fl/.style={-{Stealth[length=2.4mm]},thick,cgray}]
 \node[stage,fill=cblue!12] (train) {\texttt{train.py}\\统一训练入口\\{\scriptsize --env --algo --reward --seed}};
-\node[stage,right=of train,fill=cblue!12] (sweep) {\texttt{sweep.py}\\全网格 189 组\\{\scriptsize 可断点续跑 (catchup.py)}};
+\node[stage,right=of train,fill=cblue!12] (sweep) {\texttt{sweep.py}\\全网格 393 组\\{\scriptsize 断点续跑 / 设备分轨并行}};
 \node[stage,right=of sweep,fill=cgreen!12] (ana) {\texttt{analysis.py}\\出版级图 + \texttt{.tex} 表\\{\scriptsize results/figs/}};
 \node[stage,below=of ana,fill=cgreen!12] (gen) {\texttt{gen\_results.py}\\headline.json + findings};
 \node[stage,below=of sweep,fill=corange!14] (papers) {论文 1(算法对比)\\论文 2(奖励设计)\\{\scriptsize IEEEtran,build\_papers.bat}};
@@ -167,27 +177,52 @@ PPO 近端家族(方法开关) & PPO-Clip、PPO-KL(自适应)、PPO-RB(回滚)�
 
 \section{核心结果}
 
-\subsection{总表(dense 奖励,3 种子均值,189 组)}
+\subsection{总表(dense 奖励,3 种子均值,393 组)}
 
 \begin{table}[H]
 \centering
-\caption{12 算法 $\times$ 3 任务核心结果(与 README\_CN 完全同步)}
+\caption{16 算法 $\times$ E1--E3 核心结果(与 README\_CN 完全同步)}
+\small
 \begin{tabular}{lcccl}
 \toprule
 算法 & E1 导航成功率 & E2 单足位移 & E3 抓取提起 & 备注 \\
 \midrule
-SAC & \textbf{0.830} & \textbf{0.899} & 0.629 & 慢 5--8$\times$(E2 4403\,s) \\
+SAC & \textbf{0.830} & \textbf{0.899} & 0.629 & 慢 5--8$\times$ \\
+SAC-TR & 0.829$\pm$0.03 & 0.898 & 0.552 & E1--E4 $pprox$SAC,E5 登顶 \\
 PPG & 0.673 & 0.020 & 0.998 & E1 仅 39\,s \\
+PPO-Ent & 0.666$\pm$0.02 & 0.781$\pm$0.13 & 0.990 & 熵$\approx$中性 \\
 TRPO & 0.669$\pm$0.02 & 0.681 & \textbf{1.000$\pm$0.00} & CG + 线搜开销 \\
 PPO-KL & 0.658 & 0.785 & 0.992 & \\
 PPO-RB & 0.655 & 0.669 & 0.995 & \\
-PPO-Clip & 0.652 & 0.620 & 0.996 & E2 种子散布 $\pm$0.17 \\
+PPO-Clip & 0.652 & 0.620 & 0.996 & E2 散布 $\pm$0.17 \\
+PPO-NoVC & 0.646$\pm$0.03 & 0.543$\pm$0.25 & 0.993 & 价值裁剪关键 \\
 ESPO & 0.648 & 0.755 & 0.568 & \\
 TR-PPO-RB & 0.625 & 0.754 & 0.694 & \\
 GRPO-C & 0.557$\pm$0.07 & 0.017 & 0.000 & 仅 E1 中游 \\
 A2C & 0.547 & 0.027 & 0.059 & \\
 TD3 & 0.434 & 0.167 & 0.000 & 种子彩票 \\
+ES & 0.296$\pm$0.00 & $-$0.024 & 0.000 & 采样平价下界 \\
 DAPO-C & 0.324 & 0.015 & 0.000 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{E4 连续抓取循环 / E5 双足行走(新增任务,dense,3 种子)}
+\small
+\begin{tabular}{lccclc}
+\toprule
+算法 & E4 完成比 & E5 位移/10 & 算法 & E4 完成比 & E5 位移/10 \\
+\midrule
+PPO-RB & \textbf{0.999$\pm$0.00} & 0.657$\pm$0.17 & SAC & 0.792$\pm$0.09 & 0.559$\pm$0.04 \\
+TRPO & \textbf{0.999$\pm$0.00} & 0.764$\pm$0.02 & SAC-TR & 0.596$\pm$0.07 & \textbf{0.859$\pm$0.03} \\
+PPO-NoVC & 0.997 & 0.659$\pm$0.09 & ESPO & 0.837$\pm$0.12 & \textbf{0.838$\pm$0.06} \\
+PPO-Clip & 0.994 & 0.461$\pm$0.13 & PPG & 0.959 & 0.182$\pm$0.17 \\
+PPO-KL & 0.988 & \textbf{0.753$\pm$0.08} & TD3 & 0.195$\pm$0.28 & 0.136 \\
+PPO-Ent & 0.985 & 0.528 & A2C & 0.000 & 0.032 \\
+TR-PPO-RB & 0.694$\pm$0.39 & 0.722$\pm$0.19 & GRPO-C/DAPO-C & 0.000 & ${\approx}$0.03 \\
+ & & & ES & 0.000 & $-$0.024 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -222,7 +257,8 @@ DAPO-C & 0.324 & 0.015 & 0.000 & \\
 
 \begin{table}[H]
 \centering
-\caption{奖励范式 $\times$ 算法 $\times$ 任务终值(3 种子均值)}
+\caption{奖励范式 $\times$ 算法 $\times$ 任务终值(3 种子均值,5 任务)}
+\small
 \begin{tabular}{llcccc}
 \toprule
 任务 & 算法 & 稀疏 sparse & 稠密 dense & 势函数 PBS & 课程 curriculum \\
@@ -238,6 +274,14 @@ E2 单足 & GRPO-C & \textbf{0.109} & 0.017 & 0.097 & 0.016 \\
 E3 抓取 & PPO-Clip & \textcolor{cred}{0.009} & 0.996 & 0.944 & 0.993 \\
 E3 抓取 & TRPO & \textcolor{cred}{0.000} & \textbf{1.000} & 0.984 & 0.996 \\
 E3 抓取 & GRPO-C & 0.000 & 0.000 & 0.000 & 0.000 \\
+\midrule
+E4 循环 & PPO-Clip & \textcolor{cred}{0.010} & \textbf{0.994} & \textcolor{cred}{0.000} & 0.665 \\
+E4 循环 & TRPO & 0.124 & \textbf{0.999} & \textcolor{cred}{0.028} & 0.998 \\
+E4 循环 & GRPO-C & 0.000 & 0.000 & 0.000 & 0.000 \\
+\midrule
+E5 双足 & PPO-Clip & 0.257 & 0.461 & \textcolor{cred}{0.122} & \textbf{0.520} \\
+E5 双足 & TRPO & 0.167 & \textbf{0.764} & 0.255 & 0.689 \\
+E5 双足 & GRPO-C & \textbf{0.114} & 0.027 & 0.099 & 0.030 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -312,8 +356,8 @@ E3 抓取 & GRPO-C & 0.000 & 0.000 & 0.000 & 0.000 \\
 
 % ---- 实验空间层
 \node[hub,below=13mm of b2.south,fill=black!8] (exp) {\textbf{实验空间}\\
-3 任务(E1 导航 / E2 单足 / E3 抓取)$\times$ 4 奖励范式(sparse / dense / PBS / curriculum)$\times$ 3 种子\\
-{\small $12\times3\times3$(dense 轴)$\;+\;3\times3\times3\times3$(奖励轴)$\;=\;$\textbf{189 组}}};
+5 任务(E1 导航 / E2 单足 / E3 抓取 / E4 循环 / E5 双足)$\times$ 4 奖励范式 $\times$ 3 种子\\
+{\small 16$\times$5$\times$3(dense)+ 3$\times$3$\times$5$\times$3(奖励轴)+ 2$\times$3$\times$3($\epsilon$ 敏感)$\;=\;$\textbf{393 组}}};
 \draw[fl] (a6.south) -- ([xshift=-40mm]exp.north);
 \draw[fl] (b2.south) -- (exp.north);
 \draw[fl] (o2.south) -- ([xshift=40mm]exp.north);
@@ -322,17 +366,21 @@ E3 抓取 & GRPO-C & 0.000 & 0.000 & 0.000 & 0.000 \\
 \node[hub,below=7mm of exp.south,fill=cblue!8] (out) {\textbf{产出:}论文 1(算法对比 · IEEE 6 页)\quad 论文 2(奖励设计 · IEEE 4 页)\quad 本实验报告 + 全量开源};
 \draw[fl] (exp) -- (out);
 \end{tikzpicture}}% end resizebox
-\caption{算法知识图谱:六篇源头论文 $\to$ 三大家族 $\to$ 12 算法统一实现 $\to$ 189 组实验 $\to$ 两篇论文与本报告。绿色=信赖域近端家族(演进主线:PPO-Clip 对称裁剪 $\to$ PPO-RB 回滚斜坡 $\to$ TR-PPO-RB 信赖域触发 $\to$ ESPO 早停;另有自适应 KL、阶段化 PPG 与经典 TRPO、A2C);蓝色=源自 LLM 后训练的组相对家族(GRPO-C/DAPO-C,回合结果基线 + 控制域适配);橙色=异策略锚点(SAC/TD3)。189 $=$ 12$\times$3$\times$3(dense 轴)+ 3$\times$3$\times$3$\times$3(奖励轴)。}
+\caption{算法知识图谱:六篇源头论文 $\to$ 三大家族 $\to$ 16 算法统一实现 $\to$ 393 组实验 $\to$ 两篇论文与本报告。绿色=信赖域近端家族(演进主线:PPO-Clip 对称裁剪 $\to$ PPO-RB 回滚斜坡 $\to$ TR-PPO-RB 信赖域触发 $\to$ ESPO 早停;另有自适应 KL、阶段化 PPG 与经典 TRPO、A2C);蓝色=源自 LLM 后训练的组相对家族(GRPO-C/DAPO-C);橙色=异策略锚点(SAC/TD3/SAC-TR,另有无梯度 ES 与消融变体未画)。393 $=$ 16$\times$5$\times$3 $+$ 3$\times$3$\times$5$\times$3 $+$ 2$\times$3$\times$3。}
 \end{figure}
 
 \section{核心发现}
 
 \begin{enumerate}
-\item \textbf{信赖域保险决定可靠性。}接触密集的 E2 上,方差受控变体(自适应 KL / 早停 / 信赖域回滚)种子散布 $\le\pm$0.12,朴素裁剪散到 $\pm$0.17。
-\item \textbf{TRPO 沉默地优秀。}dense 奖励下以种子满分 \textbf{1.000} 拿下 E3,E1 位列第三——早前"高方差"印象是聚合时混入多奖励范式造成的假象(v2.1 已修复,本报告全部为纯 dense 数值)。
-\item \textbf{SAC 用 5--8$\times$ 墙钟换 E1+E2 双冠;TD3 是种子彩票}(E1 $0.43\pm0.20$,E3 为 0)。
-\item \textbf{组相对方法(GRPO-C/DAPO-C)只适合 outcome 型任务。}在最接近 outcome 型的 E1 中游,在运控与多阶段抓取上趋近于零;E2 上 GRPO-C 用 sparse(0.109)反超自己的 dense(0.017)——干净的终端信用更适合组基线。
-\item \textbf{奖励范式 $\times$ 算法交互真实存在:}PBS 在 E1/E3 拯救稀疏训练、在 E2 塌方($\gamma<1$ 势函数失真);稠密多项回报反而会\emph{污染}组基线。
+\item \textbf{信赖域保险决定可靠性,双足以铁证加冕。}E5 上保险变体(ESPO \textbf{0.838} / TRPO 0.764 / PPO-KL 0.753 / TR-PPO-RB 0.722)碾压朴素裁剪(0.461);E2 上保险变体散布 $\le\pm$0.12 vs 朴素 $\pm$0.17。
+\item \textbf{TRPO 沉默地优秀。}E3 种子满分 \textbf{1.000},E4 连续循环 \textbf{0.999},E5 0.764——跨四类任务的全能选手。
+\item \textbf{连续抓取循环是同策略堡垒:}E4 被 PPO 全家 $\ge$0.99 解出,而 \textbf{GRPO-C/DAPO-C 恰为 0.000}——多阶段循环比单次抓取更彻底击溃回合结果基线。
+\item \textbf{SAC-TR 在 E5 双足以 0.859$\pm$0.03 登顶}(SAC 本体 0.559),但在 E1--E4 与 SAC 持平或略逊(0.829/0.898/0.552/0.596)——KL 信赖域对 off-policy 的收益依赖任务结构:双足长时程平衡回报约束,而导航/单目标任务由回放分布漂移主导。
+\item \textbf{消融定位关键技巧:}熵奖励 $\approx$ 中性;\textbf{去价值裁剪 E2 掉 8 分且散布翻倍}(0.543$\pm$0.25);PPO $\epsilon$ 敏感性温和(E2:0.51/0.62/0.65 @ $\epsilon$=0.1/0.2/0.3)。
+\item \textbf{组相对仍是 outcome 型专家:}E5 上 GRPO-C sparse(0.114)$>$dense(0.027)再现干净终端信用规律;E4 全范式归零。
+\item \textbf{ES(无梯度)仅学会导航(0.296),其余趋零/负:}严格采样平价下仅约 450 代——无梯度搜索的采样代价被量出;其主场是墙钟并行而非样本。
+\item \textbf{奖励轴:}E4 循环\textbf{必需 dense}(sparse 0.01 / PBS 0.03 / 课程 0.67 vs dense 0.99);PBS 在 E2/E5 运控塌方($\gamma<1$ 势函数失真)、在 E1/E3/E4 优于稀疏。
+\item \textbf{鲁棒性通道(v2.2):}加噪评估(动作 0.1+观测 0.05)下策略保留 94--100\% 能力(E4 PPO 0.999$\to$0.999;E5 ESPO 0.838$\to$0.833);steps-to-80\% 全格报告(E5 ESPO 仅 180k 步)。
 \end{enumerate}
 
 \section{复现指南}
@@ -345,8 +393,10 @@ E3 抓取 & GRPO-C & 0.000 & 0.000 & 0.000 & 0.000 \\
 \toprule
 目标 & 命令 \\
 \midrule
-单次训练 & \texttt{python control/train.py --env nav --algo ppo --reward dense --seed 0} \\
+单次训练 & \texttt{python control/train.py --env walker --algo espo --reward dense --seed 0} \\
 全网格(断点续跑) & \texttt{python control/sweep.py --axis all --workers 2} \\
+GPU 分轨(off-policy) & \texttt{sweep.py --env walker --axis algo} \texttt{--algos sac,td3,sac\_tr} \\
+$\epsilon$ 敏感轴 & \texttt{sweep.py --axis sense --workers 2} \\
 出版级图表 & \texttt{python control/analysis.py} \\
 核心数字 & \texttt{python control/gen\_results.py} \\
 自检 & \texttt{python control/selftest\_envs.py \&\& python control/selftest\_algos.py} \\
@@ -357,11 +407,30 @@ v1 四算法对比 & \texttt{cd v1-llm-post-training \&\& python run\_comparison
 \end{tabular}
 \end{table}
 
-\textbf{性能备注:}nav 走 GPU;hopper/grasp 环境步进在 CPU 上更快(内核启动开销主导,GPU 反慢约 6$\times$);SAC/TD3 必须用 cuda 设备(CPU 上每任务约 6 小时);\texttt{torch.set\_num\_threads(2)}。
+\textbf{性能备注(实测):}设备自动路由已内置——同策略家族在 hopper/grasp/E4/E5 走 CPU(小内核启动开销主导);off-policy(SAC/TD3/SAC-TR)走 GPU,实测快 5.8$\times$;每进程 \texttt{torch} 线程数限 2;训练解释器为 conda 环境 \texttt{aitachi}。
+
+\section{延后算法路线图}
+
+\begin{table}[H]
+\centering
+\caption{v2.2 范围外算法与延后理由}
+\small
+\begin{tabular}{l p{10.2cm}}
+\toprule
+家族 & 延后理由 \\
+\midrule
+ACER / RE3-JR(连续动作) & Retrace + 信赖域校正属论文级工程;仓促实现即不公平基线 \\
+DreamerV3 / TD-MPC2 & 世界模型管线独立成研究,入场成本远大于增量洞见 \\
+IQL / CQL / TD3+BC & 需离线数据集,本套件为在线协议 \\
+DAgger / BC / RMA & 需示教数据或真机部署回路 \\
+CMA-ES & 13k 参数下全协方差不可行;以 OpenAI-ES 替代并实测其采样平价代价 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{结论}
 
-v2 套件以 189 组受控实验给出了同一问题的双域答案:LLM 社区孕育的组相对优化器迁移到机器人控制时,只在回合短、结果信号干净的任务上可用;而在接触密集与多阶段操作任务上,决定成败的不是代理目标的形状,而是\emph{信赖域保险的有无}与\emph{奖励范式与算法信用粒度的匹配}。全部代码、逐项奖励审计与 189 组原始日志随仓库开源,本报告与 README\_CN、两篇论文数值完全一致,可交叉验证。
+v2.2 套件以 393 组受控实验给出了同一问题的双域答案:LLM 社区孕育的组相对优化器迁移到机器人控制时,只在回合短、结果信号干净的任务上可用,在连续操作循环与双足协调上彻底失效(0.000);而在接触密集与多阶段任务上,决定成败的不是代理目标的形状,而是\emph{信赖域保险的有无}(E5:ESPO 0.838 vs 朴素裁剪 0.461)与\emph{奖励范式与算法信用粒度的匹配}(E4 循环必需 dense)。全部代码、逐项奖励审计、加噪鲁棒通道与 393 组原始日志随仓库开源,本报告与 README\_CN 数值完全一致,可交叉验证。
 
 \appendix
 \section{结果目录结构}
@@ -375,14 +444,15 @@ results/
 
 \section{版本历史}
 \begin{table}[H]
-\centering
-\begin{tabular}{lll}
+\centering\small
+\begin{tabular}{l l p{9.6cm}}
 \toprule
 版本 & 日期 & 内容 \\
 \midrule
 v1(3.0.0) & 2025-04 & LLM 四算法研究首发(初名 deepseek\_r1\_qwen2-1.5b) \\
 v2 & 2026-11 & 机器人控制套件:12 算法 $\times$ 3 任务 $\times$ 4 范式,189 组,两篇论文 \\
 v2.1 & 2026-11-14 & 目录版本化;gen\_results 聚合双 bug 修复;论文重建;本报告新增 \\
+\textbf{v2.2} & \textbf{2026-11-15} & \textbf{+E4 连续抓取循环、+E5 双足行走;+SAC-TR/消融/ES(16 算法);$\epsilon$ 敏感轴;加噪鲁棒协议;steps-to-80\%;新增 204 组 $\to$ 393;GPU 路由 + 双轨 sweep} \\
 \bottomrule
 \end{tabular}
 \end{table}

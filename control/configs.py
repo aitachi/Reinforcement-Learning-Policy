@@ -51,6 +51,11 @@ BASE = {
     "td3_policy_delay": 2,
     "td3_utd": 16,
     "td3_buffer": 600_000,
+    "sac_tr_delta": 0.01,          # SAC-TR actor KL budget (TRPO-style backtrack)
+    "es_sigma": 0.05,              # antithetic ES perturbation scale
+    "es_lr": 0.05,
+    "es_window": 64,               # fitness window (control steps) per generation
+    "es_rank": True,
 }
 
 ENVS_CFG = {
@@ -60,4 +65,8 @@ ENVS_CFG = {
                "eval_every": 20_000},
     "grasp": {"total_steps": 500_000, "num_envs": 64, "rollout": 256,
               "eval_every": 20_000},
+    "graspseq": {"total_steps": 800_000, "num_envs": 64, "rollout": 256,
+                 "eval_every": 20_000},
+    "walker": {"total_steps": 600_000, "num_envs": 64, "rollout": 256,
+               "eval_every": 20_000},
 }

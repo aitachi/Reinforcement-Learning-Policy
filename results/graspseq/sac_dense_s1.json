@@ -1,0 +1,42 @@
+{
+ "env": "graspseq",
+ "algo": "sac",
+ "reward": "dense",
+ "seed": 1,
+ "total_steps": 800000,
+ "wall_s": 4063.9,
+ "eval_success": 0.0625,
+ "eval_outcome": 0.6770833730697632,
+ "eval_len": 293.296875,
+ "eval_return": 44.96469497680664,
+ "eval_return_std": 7.532678127288818,
+ "eval_success_noisy": 0.0625,
+ "eval_outcome_noisy": 0.6875,
+ "diag_dist": 0.04041672870516777,
+ "diag_grasp": 0.8125,
+ "diag_completed": 2.03125,
+ "diag_height": 0.09417243301868439,
+ "diag_objx": 0.12820687890052795,
+ "diag_ev_release": 0.75,
+ "diag_ev_zone": 0.75,
+ "diag_ev_place": 0.0,
+ "diag_ev_settle_out": 0.0,
+ "last_train_metrics": {
+  "pi_loss": -10.884267568588257,
+  "q_loss": 0.4247444188222289,
+  "alpha": 0.007799470360623673,
+  "entropy": -4.102761894464493,
+  "optimizer_steps": 16
+ },
+ "reward_term_audit": {
+  "approach": -0.004299836698919535,
+  "lift": 0.04944762587547302,
+  "milestone": 0.03125,
+  "zone_milestone": 0.0,
+  "release_zone": 0.0,
+  "grasp_event": 0.03125,
+  "carry": 0.03165090084075928,
+  "place": 0.15625,
+  "drop": 0.0
+ }
+}

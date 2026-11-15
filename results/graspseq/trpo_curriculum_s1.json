@@ -1,0 +1,37 @@
+{
+ "env": "graspseq",
+ "algo": "trpo",
+ "reward": "curriculum",
+ "seed": 1,
+ "total_steps": 802816,
+ "wall_s": 512.0,
+ "eval_success": 1.0,
+ "eval_outcome": 1.0,
+ "eval_len": 73.515625,
+ "eval_return": 34.650291442871094,
+ "eval_return_std": 2.944584846496582,
+ "eval_success_noisy": 1.0,
+ "eval_outcome_noisy": 1.0,
+ "diag_dist": 0.03876575082540512,
+ "diag_grasp": 0.859375,
+ "diag_completed": 3.0,
+ "diag_height": 0.08072355389595032,
+ "diag_objx": 0.14163930714130402,
+ "diag_ev_release": 0.0,
+ "diag_ev_zone": 0.0,
+ "diag_ev_place": 0.0,
+ "diag_ev_settle_out": 0.0,
+ "last_train_metrics": {
+  "pi_loss": -0.005273346323519945,
+  "vf_loss": 0.010571390361292288,
+  "trpo_accept": 1.0,
+  "post_kl": 0.0024730118457227945,
+  "log_std": -1.123369574546814,
+  "optimizer_steps": 8
+ },
+ "reward_term_audit": {
+  "mix_weight": 1.0,
+  "dense": 0.4865320026874542,
+  "sparse": 0.08375000953674316
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "env": "nav",
+ "algo": "es",
+ "reward": "dense",
+ "seed": 1,
+ "total_steps": 401408,
+ "wall_s": 115.6,
+ "eval_success": 0.328125,
+ "eval_outcome": 0.15625,
+ "eval_len": 76.734375,
+ "eval_return": -2.31048846244812,
+ "eval_return_std": 5.701041221618652,
+ "eval_success_noisy": 0.234375,
+ "eval_outcome_noisy": -0.078125,
+ "last_train_metrics": {
+  "es_fitness": -1.6363186836242676,
+  "episode_success": 0.3125,
+  "generations": 98.0,
+  "episode_return_mean": -1.6363186836242676,
+  "resampled_steps": 0.0
+ },
+ "reward_term_audit": {}
+}
