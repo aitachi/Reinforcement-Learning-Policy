@@ -192,3 +192,7 @@ papers/experiment_report/main.log
 papers/experiment_report/main.out
 papers/experiment_report/main.toc
 papers/experiment_report/figs/*.png
+!papers/experiment_report/figs/kgraph.png
+!papers/experiment_report/figs/workflow.png
+!papers/experiment_report/figs/fig3d_algo_task.png
+!papers/experiment_report/figs/fig3d_paradigm.png
