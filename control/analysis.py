@@ -93,7 +93,7 @@ def curve_band(runs, algo, reward, metric, env):
 
 def fig_learning_curves(reward="dense", algos=None, fname=None, ncols=3):
     algos = algos or ALGOS
-    envs = [e for e in ("nav", "hopper", "grasp")
+    envs = [e for e in ("nav", "hopper", "grasp", "graspseq", "walker")
             if any(k[1] == reward for k in load_runs(e, reward))]
     fig, axes = plt.subplots(1, len(envs), figsize=(3.1 * len(envs), 2.5))
     if len(envs) == 1:
@@ -141,7 +141,7 @@ def final_metrics(env, reward="dense"):
 
 
 def fig_final_bars(reward="dense"):
-    envs = [e for e in ("nav", "hopper", "grasp")
+    envs = [e for e in ("nav", "hopper", "grasp", "graspseq", "walker")
             if any(k[1] == reward for k in load_runs(e, reward))]
     fig, axes = plt.subplots(1, len(envs), figsize=(3.1 * len(envs), 2.4))
     if len(envs) == 1:
@@ -166,8 +166,8 @@ def fig_final_bars(reward="dense"):
 def fig_reward_paradigms():
     algos = ["ppo", "trpo", "grpo"]
     rewards = ["sparse", "dense", "pbs", "curriculum"]
-    fig, axes = plt.subplots(3, 4, figsize=(10.5, 6.2))
-    for i, env in enumerate(("nav", "hopper", "grasp")):
+    fig, axes = plt.subplots(5, 4, figsize=(10.5, 10.5))
+    for i, env in enumerate(("nav", "hopper", "grasp", "graspseq", "walker")):
         metric, _ = ENV_METRIC[env]
         for j, rw in enumerate(rewards):
             ax = axes[i, j]
@@ -192,7 +192,7 @@ def fig_reward_paradigms():
 
 
 def fig_radar():
-    envs = [e for e in ("nav", "hopper", "grasp")]
+    envs = [e for e in ("nav", "hopper", "grasp", "graspseq", "walker")]
     metrics = {}
     for env in envs:
         for r in final_metrics(env, "dense"):
@@ -228,7 +228,7 @@ def fig_radar():
 
 def tex_tables():
     all_lines = []
-    for env in ("nav", "hopper", "grasp"):
+    for env in ("nav", "hopper", "grasp", "graspseq", "walker"):
         fm = final_metrics(env, "dense")
         metric, _ = ENV_METRIC[env]
         lines = [f"% {ENV_TITLES[env]} ({metric})",
@@ -248,7 +248,7 @@ def tex_tables():
     # reward paradigm table (final metric per env x algo x reward)
     rows = []
     header = ["env", "algo"] + ["sparse", "dense", "pbs", "curriculum"]
-    for env in ("nav", "hopper", "grasp"):
+    for env in ("nav", "hopper", "grasp", "graspseq", "walker"):
         for a in ("ppo", "trpo", "grpo"):
             row = [env, LABELS[a]]
             for rw in ("sparse", "dense", "pbs", "curriculum"):

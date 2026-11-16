@@ -9,7 +9,12 @@ post-training.**
 
 强化学习策略优化对比项目:当前 **v2** 聚焦**机器人控制**,完整保留的 **v1** 为大模型后训练研究。
 
-**Language / 语言:** [English](README.md) | [中文](README_CN.md)
+**Language / 语言:** [English](README.md) | [中文 学术全量版](README_CN.md)
+
+> **[中文学术全量版 README_CN.md](README_CN.md)** contains the complete experiment report inline:
+> all five per-environment data tables (final±std / AUC / steps-to-80% / wall-clock / noisy),
+> the reward-axis table, sensitivity & ablations, robustness analysis, and every figure
+> (learning curves, bars, radar, two 3-D plots, workflow, knowledge graph) embedded.
 
 ---
 

@@ -54,6 +54,7 @@ def style3d(ax):
 
 def save(fig, name):
     fig.savefig(os.path.join(FIGS, name + ".pdf"), bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(os.path.join(FIGS, name + ".png"), dpi=150, bbox_inches="tight", pad_inches=0.15)
 
 
 def fig3d_algo_task(h):
